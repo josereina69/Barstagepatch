@@ -79,8 +79,8 @@
     .dot{width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.4)}
     .snake-title{font-weight:700; font-size:.95rem}
     .snake-meta{font-size:.8rem; color:var(--muted)}
-    .snake-actions{display:flex; gap:6px}
-    .snake-actions button{padding:8px 10px; font-size:.82rem}
+    .snake-actions{display:flex; gap:6px; flex-wrap:wrap}
+    .snake-actions button{padding:8px 10px; font-size:.82rem; width:auto; min-width:42px}
 
     .editor{
       position:fixed; inset:0; background:rgba(4,8,20,.82); backdrop-filter:blur(2px);
@@ -125,7 +125,6 @@
     .k{font-size:.74rem;color:var(--muted)}
     .v{font-size:.92rem}
 
-    /* VISTA LECTURA (tipo hoja de cálculo) */
     .sheet-wrap{display:none}
     .sheet-toolbar{
       display:flex; gap:8px; flex-wrap:wrap; align-items:end; margin-bottom:10px;
@@ -214,7 +213,6 @@
     </div>
   </div>
 
-  <!-- CONTROLES EDICIÓN -->
   <div class="edit-only">
     <div class="card">
       <div class="grid grid-3">
@@ -278,7 +276,6 @@
     </div>
   </div>
 
-  <!-- VISTA LECTURA / HOJA -->
   <div class="sheet-wrap read-only-only">
     <div class="card">
       <div class="sheet-toolbar">
@@ -338,7 +335,7 @@
   const STAGEPATCH_MIME = "application/x-stagepatch+json";
   const STAGEPATCH_SCHEMA_VERSION = 1;
   const LS_BACKUP_KEY = "stagepatch_backup_v1";
-  const LS_MODE_KEY = "stagepatch_view_mode_v1"; // edit | read
+  const LS_MODE_KEY = "stagepatch_view_mode_v1";
 
   let appData = { show: { name:"", artist:"", date:"" }, snakes: [] };
   let editorSnakeId = null;
@@ -355,7 +352,6 @@
   const deepClone = o => JSON.parse(JSON.stringify(o));
   const snakes = () => appData.snakes;
   function clampR(n){ return Math.min(8, Math.max(0, Number(n) || 0)); }
-
   function isReadMode(){ return viewMode === "read"; }
 
   function setSaveIndicator(txt){ $("saveIndicator").textContent = "Backup: " + txt; }
@@ -384,16 +380,14 @@
   }
 
   function undo(){
-    if(isReadMode()) return;
-    if(!undoStack.length) return;
+    if(isReadMode() || !undoStack.length) return;
     const prev = undoStack.pop();
     redoStack.push({ state: deepClone(appData) });
     historyMuted = true; restoreState(prev.state); historyMuted = false;
     updateUndoRedoButtons();
   }
   function redo(){
-    if(isReadMode()) return;
-    if(!redoStack.length) return;
+    if(isReadMode() || !redoStack.length) return;
     const next = redoStack.pop();
     undoStack.push({ state: deepClone(appData) });
     historyMuted = true; restoreState(next.state); historyMuted = false;
@@ -486,8 +480,9 @@
 
   function updateShowBadge(){
     const s = appData.show;
-    $("showBadge").textContent = "Show: " + `${s.name || "Sin definir"}${s.artist ? " · " + s.artist : ""}${s.date ? " · " + s.date : ""}`;
-    $("sheetMeta").textContent = $("showBadge").textContent;
+    const txt = "Show: " + `${s.name || "Sin definir"}${s.artist ? " · " + s.artist : ""}${s.date ? " · " + s.date : ""}`;
+    $("showBadge").textContent = txt;
+    $("sheetMeta").textContent = txt;
   }
 
   function saveShowMeta(){
@@ -541,6 +536,24 @@
     renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
+  function moveSnakeUp(id){
+    if(isReadMode()) return;
+    const i = appData.snakes.findIndex(s => s.id === id);
+    if(i <= 0) return;
+    snapshot("move snake up");
+    [appData.snakes[i-1], appData.snakes[i]] = [appData.snakes[i], appData.snakes[i-1]];
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshSheetFilter(); renderSheetView();
+  }
+
+  function moveSnakeDown(id){
+    if(isReadMode()) return;
+    const i = appData.snakes.findIndex(s => s.id === id);
+    if(i < 0 || i >= appData.snakes.length - 1) return;
+    snapshot("move snake down");
+    [appData.snakes[i+1], appData.snakes[i]] = [appData.snakes[i], appData.snakes[i+1]];
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshSheetFilter(); renderSheetView();
+  }
+
   function renderList(){
     const q = $("search").value.trim().toLowerCase();
     const el = $("snakesList"); el.innerHTML = "";
@@ -552,7 +565,7 @@
 
     if(!list.length){ el.innerHTML = `<div class="small">No hay subsnakes aún.</div>`; return; }
 
-    list.forEach(s=>{
+    list.forEach((s, idx)=>{
       const item = document.createElement("div");
       item.className = "snake-item";
       item.innerHTML = `
@@ -561,10 +574,14 @@
             <span class="dot" style="background:${s.color}"></span>
             <div>
               <div class="snake-title">${esc(s.name)}</div>
-              <div class="snake-meta">${s.channelsCount} entradas + ${s.returnsCount} salidas ${s.zone ? "• " + esc(s.zone) : ""}</div>
+              <div class="snake-meta">
+                #${idx+1} · ${s.channelsCount} entradas + ${s.returnsCount} salidas ${s.zone ? "• " + esc(s.zone) : ""}
+              </div>
             </div>
           </div>
           <div class="snake-actions">
+            <button onclick="moveSnakeUp('${s.id}')" title="Subir">↑</button>
+            <button onclick="moveSnakeDown('${s.id}')" title="Bajar">↓</button>
             <button onclick="openEditor('${s.id}')">Editar</button>
             <button onclick="duplicateSnake('${s.id}')">Dup</button>
             <button class="btn-danger" onclick="deleteSnake('${s.id}')">X</button>
@@ -849,7 +866,6 @@
 
   function doPrint(){ buildPrintView(); window.print(); }
 
-  /* ======= SHEET VIEW ======= */
   function refreshSheetFilter(){
     const sel = $("sheetSnakeFilter");
     const cur = sel.value || "all";
@@ -967,6 +983,8 @@
   window.openSnakeAndTab = openSnakeAndTab;
   window.deleteSnake = deleteSnake;
   window.duplicateSnake = duplicateSnake;
+  window.moveSnakeUp = moveSnakeUp;
+  window.moveSnakeDown = moveSnakeDown;
   window.updCh = updCh;
   window.updRet = updRet;
   window.startFieldEdit = startFieldEdit;
