@@ -31,11 +31,13 @@
     .btn-danger{background:#3a1419; border-color:#7f1d1d}
     .btn-ghost{background:transparent}
     .btn-ok{background:#10331f; border-color:#1f7a43}
+    .btn-warn{background:#3a2b12; border-color:#7c5a1f}
 
     .grid{display:grid; gap:8px}
     .grid-2{grid-template-columns:1fr 1fr}
     .grid-3{grid-template-columns:1fr 1fr 1fr}
-    @media (max-width:720px){ .grid-2,.grid-3{grid-template-columns:1fr} }
+    .grid-4{grid-template-columns:1fr 1fr 1fr 1fr}
+    @media (max-width:720px){ .grid-2,.grid-3,.grid-4{grid-template-columns:1fr} }
 
     .row{display:flex; gap:8px; flex-wrap:wrap}
     .row > *{flex:1 1 140px}
@@ -43,6 +45,11 @@
     .show-pill{
       display:inline-block; padding:6px 10px; border:1px solid #3d56a3;
       border-radius:999px; font-size:.82rem; background:#16244d; margin-top:8px;
+    }
+    .save-indicator{
+      margin-top:8px;
+      font-size:.78rem;
+      color:var(--muted);
     }
 
     .snake-item{
@@ -90,6 +97,39 @@
     }
     .small{font-size:.8rem; color:var(--muted)}
 
+    .result-item{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px;
+      margin-bottom:8px;
+      background:#101a38;
+    }
+    .result-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:center;
+      margin-bottom:6px;
+      flex-wrap:wrap;
+    }
+    .badge{
+      font-size:.72rem;
+      border:1px solid #4a5fa3;
+      border-radius:999px;
+      padding:2px 8px;
+      background:#172654;
+    }
+    .result-grid{
+      display:grid;
+      gap:6px;
+      grid-template-columns:1fr 1fr;
+    }
+    @media(max-width:720px){
+      .result-grid{grid-template-columns:1fr}
+    }
+    .k{font-size:.74rem;color:var(--muted)}
+    .v{font-size:.92rem}
+
     .sticky-bottom{
       position:fixed; left:0; right:0; bottom:0; background:#0b1226;
       border-top:1px solid var(--line); padding:8px; z-index:10;
@@ -97,10 +137,61 @@
     .sticky-wrap{max-width:980px; margin:0 auto; display:flex; gap:8px}
     .sticky-wrap button{flex:1}
 
+    .print-only{display:none}
+
     @media print{
-      .no-print,.editor,.sticky-bottom{display:none !important}
-      body{background:#fff; color:#000}
-      .card,.snake-item{background:#fff; border:1px solid #aaa}
+      .no-print,.editor,.sticky-bottom,#searchResults{display:none !important}
+      .print-only{display:block !important}
+      body{background:#fff;color:#000;font-size:11px}
+      .app{max-width:none;padding:0}
+      .card,.snake-item{display:none !important;}
+
+      .print-page{
+        page-break-after:auto;
+        break-after:auto;
+        padding:12mm;
+      }
+
+      .print-snake{
+        page-break-inside:avoid;
+        break-inside:avoid;
+        margin-bottom:12px;
+        border:1px solid #666;
+        border-left:10px solid var(--snake-color, #999);
+        border-radius:4px;
+        padding:8px 8px 4px 8px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .print-snake h3{
+        margin:4px 0 6px;
+        font-size:13px;
+      }
+
+      .print-table{
+        width:100%;
+        border-collapse:collapse;
+        margin-bottom:8px;
+        page-break-inside:auto;
+        break-inside:auto;
+      }
+      .print-table th,.print-table td{
+        border:1px solid #555;
+        padding:4px 6px;
+        font-size:10px;
+      }
+      .print-table th{
+        background:#eee;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .print-table thead{display:table-header-group}
+      .print-table tr{
+        page-break-inside:avoid;
+        break-inside:avoid;
+      }
+      .muted{color:#444}
     }
   </style>
 </head>
@@ -108,7 +199,7 @@
 <div class="app">
   <div class="card no-print">
     <h1>StagePatch Pro</h1>
-    <div class="sub">Diseño móvil intuitivo para patch de escenario.</div>
+    <div class="sub">Organiza tus mangueras de escenario.</div>
   </div>
 
   <div class="card">
@@ -128,9 +219,12 @@
     </div>
     <div class="row" style="margin-top:8px">
       <button id="saveShowMeta" class="btn-ghost">Guardar show</button>
+      <button id="undoBtn" class="btn-warn no-print">↶ Deshacer</button>
+      <button id="redoBtn" class="btn-warn no-print">↷ Rehacer</button>
       <button id="printBtn" class="btn-ghost no-print">Imprimir</button>
     </div>
     <span class="show-pill" id="showBadge">Show: Sin definir</span>
+    <div id="saveIndicator" class="save-indicator no-print">Backup: pendiente</div>
   </div>
 
   <div class="card no-print">
@@ -199,23 +293,40 @@
       <div>
         <label>Acciones</label>
         <div class="row">
-          <button id="saveLocalBtn" class="btn-ok">Guardar local</button>
-          <button id="loadLocalBtn">Cargar local</button>
-          <button id="exportJson">Exportar JSON</button>
-          <button id="importJson">Importar JSON</button>
+          <button id="saveStagepatch" class="btn-ok">Guardar (.stagepatch)</button>
+          <button id="importStagepatch">Importar (.stagepatch)</button>
           <button id="clearAll" class="btn-danger">Borrar todo</button>
         </div>
       </div>
     </div>
+    <div class="grid grid-2" style="margin-top:8px">
+      <div>
+        <label>Impresión</label>
+        <select id="printMode">
+          <option value="all">Todas las mangueras</option>
+          <option value="one">Solo una manguera</option>
+        </select>
+      </div>
+      <div>
+        <label>Manguera a imprimir</label>
+        <select id="printSnakeSelect"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="searchResults" class="card no-print" style="display:none">
+    <div class="sub" style="margin-bottom:8px">Resultados del buscador</div>
+    <div id="searchResultsList"></div>
   </div>
 
   <div class="card">
     <div class="sub" style="margin-bottom:8px">Subsnakes</div>
     <div id="snakesList"></div>
   </div>
+
+  <div id="printView" class="print-only"></div>
 </div>
 
-<!-- Editor full-screen -->
 <div id="editor" class="editor no-print">
   <div class="editor-panel">
     <div class="editor-top">
@@ -253,25 +364,122 @@
   </div>
 </div>
 
+<!-- datalist para autocompletar -->
+<datalist id="dl-source"></datalist>
+<datalist id="dl-destination"></datalist>
+<datalist id="dl-mic"></datalist>
+<datalist id="dl-notes"></datalist>
+
 <script>
-  const LS_KEY = "stagepatch_mobile_v1";
   const RETURN_LABELS = ["A","B","C","D","E","F","G","H"];
-  let appData = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
+  const STAGEPATCH_EXT = ".stagepatch";
+  const STAGEPATCH_MIME = "application/x-stagepatch+json";
+  const STAGEPATCH_SCHEMA_VERSION = 1;
+  const LS_BACKUP_KEY = "stagepatch_backup_v1";
+
+  let appData = {
     show: { name:"", artist:"", date:"" },
     snakes: []
   };
 
   let editorSnakeId = null;
-  let activeTab = "inputs"; // inputs | outputs
+  let activeTab = "inputs";
+
+  // Undo/Redo
+  const HISTORY_LIMIT = 100;
+  let undoStack = [];
+  let redoStack = [];
+  let historyMuted = false;
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   })[m]);
 
-  function persist(){ localStorage.setItem(LS_KEY, JSON.stringify(appData)); }
+  function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
   function snakes(){ return appData.snakes; }
   function clampR(n){ return Math.min(8, Math.max(4, Number(n) || 4)); }
+
+  function setSaveIndicator(txt){
+    $("saveIndicator").textContent = "Backup: " + txt;
+  }
+
+  function snapshot(tag="change"){
+    if(historyMuted) return;
+    undoStack.push({ tag, state: deepClone(appData) });
+    if(undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    redoStack = [];
+    updateUndoRedoButtons();
+  }
+
+  function restoreState(state){
+    appData = deepClone(state);
+    normalize();
+    refreshShowInputs();
+    updateShowBadge();
+    renderList();
+    renderSearchResults();
+    refreshPrintSnakeSelect();
+    if(editorSnakeId && !snakes().find(s=>s.id===editorSnakeId)){
+      closeEditor();
+    } else if(editorSnakeId){
+      renderEditor();
+    }
+  }
+
+  function undo(){
+    if(!undoStack.length) return;
+    const prev = undoStack.pop();
+    redoStack.push({ state: deepClone(appData) });
+    historyMuted = true;
+    restoreState(prev.state);
+    historyMuted = false;
+    updateUndoRedoButtons();
+  }
+
+  function redo(){
+    if(!redoStack.length) return;
+    const next = redoStack.pop();
+    undoStack.push({ state: deepClone(appData) });
+    historyMuted = true;
+    restoreState(next.state);
+    historyMuted = false;
+    updateUndoRedoButtons();
+  }
+
+  function updateUndoRedoButtons(){
+    $("undoBtn").disabled = !undoStack.length;
+    $("redoBtn").disabled = !redoStack.length;
+  }
+
+  function autosaveNow(){
+    try{
+      localStorage.setItem(LS_BACKUP_KEY, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        payload: appData
+      }));
+      setSaveIndicator("guardado " + new Date().toLocaleTimeString());
+    }catch{
+      setSaveIndicator("error de guardado");
+    }
+  }
+
+  function tryRestoreBackup(){
+    try{
+      const raw = localStorage.getItem(LS_BACKUP_KEY);
+      if(!raw) return;
+      const data = JSON.parse(raw);
+      if(data?.payload?.snakes && Array.isArray(data.payload.snakes) && data.payload.snakes.length){
+        const ok = confirm("Se encontró un backup local automático. ¿Quieres restaurarlo?");
+        if(ok){
+          appData = {
+            show: data.payload.show || {name:"",artist:"",date:""},
+            snakes: data.payload.snakes || []
+          };
+        }
+      }
+    }catch{}
+  }
 
   function makeChannels(n){
     return Array.from({length:n}, (_,i)=>({
@@ -291,43 +499,37 @@
       const returnsCount = clampR(s.returnsCount);
       const returnsOld = Array.isArray(s.returns) ? s.returns : [];
       const returns = RETURN_LABELS.slice(0, returnsCount).map((l, i)=>({
-        label:l,
-        source: returnsOld[i]?.source || "",
-        destination: returnsOld[i]?.destination || "",
-        notes: returnsOld[i]?.notes || ""
+        label:l, source: returnsOld[i]?.source || "", destination: returnsOld[i]?.destination || "", notes: returnsOld[i]?.notes || ""
       }));
       return {
         ...s,
         channelsCount,
         channels: channels.map((c,i)=>({
-          channel: c.channel || i+1,
-          source:c.source||"", destination:c.destination||"",
-          micType:c.micType||"", notes:c.notes||""
+          channel: c.channel || i+1, source:c.source||"", destination:c.destination||"", micType:c.micType||"", notes:c.notes||""
         })),
         returnsCount,
         returns
       };
     });
-    persist();
   }
 
   function updateShowBadge(){
     const s = appData.show;
     const txt = `${s.name || "Sin definir"}${s.artist ? " · " + s.artist : ""}${s.date ? " · " + s.date : ""}`;
     $("showBadge").textContent = "Show: " + txt;
-    document.title = s.name ? `StagePatch Pro — ${s.name}` : "StagePatch Pro — Mobile First";
   }
 
   function saveShowMeta(){
+    snapshot("show meta");
     appData.show.name = $("showName").value.trim();
     appData.show.artist = $("artistName").value.trim();
     appData.show.date = $("showDate").value;
-    persist();
     updateShowBadge();
-    alert("Show guardado.");
+    alert("Show actualizado.");
   }
 
   function createSnakeFromData({name, channelsCount, returnsCount, color, zone, channels, returns}){
+    snapshot("create snake");
     const chN = Number(channelsCount) || 8;
     const rN = clampR(returnsCount);
     snakes().unshift({
@@ -341,8 +543,7 @@
       returns: returns || makeReturns(rN),
       createdAt: new Date().toISOString()
     });
-    persist();
-    renderList();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect();
   }
 
   function createSnake(){
@@ -358,24 +559,18 @@
   }
 
   function getTemplate(type){
-    if(type==="drums"){
-      return {
-        channelsCount:12, defaultName:"Subsnake Batería", defaultColor:"#f59e0b",
-        sources:["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","SPD-SX"]
-      };
-    }
-    if(type==="voces"){
-      return {
-        channelsCount:8, defaultName:"Subsnake Voces", defaultColor:"#22c55e",
-        sources:["Voz Lead","Coro 1","Coro 2","Coro 3","Talkback","Ambiente L","Ambiente R","Spare Voz"]
-      };
-    }
-    if(type==="metales"){
-      return {
-        channelsCount:8, defaultName:"Subsnake Metales", defaultColor:"#a855f7",
-        sources:["Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Spare Metal"]
-      };
-    }
+    if(type==="drums") return {
+      channelsCount:12, defaultName:"Subsnake Batería", defaultColor:"#f59e0b",
+      sources:["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","SPD-SX"]
+    };
+    if(type==="voces") return {
+      channelsCount:8, defaultName:"Subsnake Voces", defaultColor:"#22c55e",
+      sources:["Voz Lead","Coro 1","Coro 2","Coro 3","Talkback","Ambiente L","Ambiente R","Spare Voz"]
+    };
+    if(type==="metales") return {
+      channelsCount:8, defaultName:"Subsnake Metales", defaultColor:"#a855f7",
+      sources:["Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Spare Metal"]
+    };
     return null;
   }
 
@@ -384,15 +579,11 @@
     if(!tpl) return alert("Selecciona una plantilla.");
     const name = $("tplName").value.trim() || tpl.defaultName;
     const zone = $("tplZone").value.trim();
-    const channels = tpl.sources.map((src,i)=>({
-      channel:i+1, source:src, destination:"", micType:"", notes:""
-    }));
+    const channels = tpl.sources.map((src,i)=>({ channel:i+1, source:src, destination:"", micType:"", notes:"" }));
     createSnakeFromData({
-      name, zone,
-      channelsCount: tpl.channelsCount,
+      name, zone, channelsCount: tpl.channelsCount,
       returnsCount: Number($("snakeReturnsCount").value || 4),
-      color: tpl.defaultColor,
-      channels
+      color: tpl.defaultColor, channels
     });
     $("tplName").value = "";
     $("tplZone").value = "";
@@ -400,19 +591,19 @@
 
   function deleteSnake(id){
     if(!confirm("¿Eliminar este subsnake?")) return;
+    snapshot("delete snake");
     appData.snakes = snakes().filter(s=>s.id!==id);
-    persist();
-    renderList();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect();
   }
 
   function duplicateSnake(id){
     const s = snakes().find(x=>x.id===id); if(!s) return;
+    snapshot("duplicate snake");
     const cp = JSON.parse(JSON.stringify(s));
     cp.id = crypto.randomUUID();
     cp.name = s.name + " (copia)";
     snakes().unshift(cp);
-    persist();
-    renderList();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect();
   }
 
   function renderList(){
@@ -423,11 +614,8 @@
     const list = snakes().filter(s=>{
       if(!q) return true;
       const retText = (s.returns||[]).flatMap(r=>[r.label,r.source,r.destination,r.notes]).join(" ");
-      const txt = [
-        s.name,s.zone,s.channelsCount,s.returnsCount,
-        ...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes]),
-        retText
-      ].join(" ").toLowerCase();
+      const txt = [s.name,s.zone,s.channelsCount,s.returnsCount,...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes]),retText]
+        .join(" ").toLowerCase();
       return txt.includes(q);
     });
 
@@ -468,6 +656,11 @@
     renderEditor();
   }
 
+  function openSnakeAndTab(snakeId, tab){
+    openEditor(snakeId);
+    setTab(tab);
+  }
+
   function closeEditor(){
     $("editor").classList.remove("open");
     editorSnakeId = null;
@@ -480,43 +673,73 @@
     renderEditorBody();
   }
 
+  function getSuggestions(){
+    const baseSource = ["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","Bass DI","Gtr L","Gtr R","Keys L","Keys R","Voz Lead","Coro 1","Coro 2","Talkback"];
+    const baseDest = ["Rack A - Input 01","Rack A - Input 02","Rack A - Input 03","IEM L","IEM R","SideFill L","SideFill R","PA L","PA R"];
+    const baseMic = ["SM58","SM57","Beta52","e904","e906","DI Activa","DI Pasiva","Condenser"];
+    const baseNotes = ["Phantom ON","Phantom OFF","Pad -20dB","HPF ON","Revisar fase"];
+
+    const src = new Set(baseSource), dst = new Set(baseDest), mic = new Set(baseMic), nts = new Set(baseNotes);
+
+    snakes().forEach(s=>{
+      (s.channels||[]).forEach(c=>{
+        if(c.source) src.add(c.source);
+        if(c.destination) dst.add(c.destination);
+        if(c.micType) mic.add(c.micType);
+        if(c.notes) nts.add(c.notes);
+      });
+      (s.returns||[]).forEach(r=>{
+        if(r.source) src.add(r.source);
+        if(r.destination) dst.add(r.destination);
+        if(r.notes) nts.add(r.notes);
+      });
+    });
+
+    return {
+      source:[...src].slice(0,300),
+      destination:[...dst].slice(0,300),
+      mic:[...mic].slice(0,300),
+      notes:[...nts].slice(0,300)
+    };
+  }
+
+  function fillDatalist(id, values){
+    const dl = $(id);
+    dl.innerHTML = values.map(v=>`<option value="${esc(v)}"></option>`).join("");
+  }
+
+  function refreshDatalists(){
+    const s = getSuggestions();
+    fillDatalist("dl-source", s.source);
+    fillDatalist("dl-destination", s.destination);
+    fillDatalist("dl-mic", s.mic);
+    fillDatalist("dl-notes", s.notes);
+  }
+
   function renderEditor(){
     const s = snakes().find(x=>x.id===editorSnakeId);
     if(!s) return closeEditor();
-
     $("edName").value = s.name || "";
     $("edZone").value = s.zone || "";
     $("edColor").value = s.color || "#4f8cff";
-
     renderEditorBody();
   }
 
   function renderEditorBody(){
     const s = snakes().find(x=>x.id===editorSnakeId);
     if(!s) return;
-
     const body = $("editorBody");
+    refreshDatalists();
+
     if(activeTab==="inputs"){
       body.innerHTML = s.channels.map((c,idx)=>`
         <div class="patch-card">
           <div class="patch-title">CH ${c.channel} <span class="small">Entrada</span></div>
           <div class="grid grid-2">
-            <div>
-              <label>Fuente</label>
-              <input value="${esc(c.source)}" oninput="updCh(${idx},'source',this.value)">
-            </div>
-            <div>
-              <label>Destino</label>
-              <input value="${esc(c.destination)}" oninput="updCh(${idx},'destination',this.value)">
-            </div>
-            <div>
-              <label>Mic / DI</label>
-              <input value="${esc(c.micType)}" oninput="updCh(${idx},'micType',this.value)">
-            </div>
-            <div>
-              <label>Notas</label>
-              <input value="${esc(c.notes)}" oninput="updCh(${idx},'notes',this.value)">
-            </div>
+            <div><label>Fuente</label><input list="dl-source" value="${esc(c.source)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'source',this.value)"></div>
+            <div><label>Destino</label><input list="dl-destination" value="${esc(c.destination)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'destination',this.value)"></div>
+            <div><label>Mic / DI</label><input list="dl-mic" value="${esc(c.micType)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'micType',this.value)"></div>
+            <div><label>Notas</label><input list="dl-notes" value="${esc(c.notes)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'notes',this.value)"></div>
           </div>
         </div>
       `).join("");
@@ -525,104 +748,144 @@
         <div class="patch-card">
           <div class="patch-title">OUT ${r.label} <span class="small">Salida</span></div>
           <div class="grid grid-2">
-            <div>
-              <label>Fuente (AUX/MATRIX)</label>
-              <input value="${esc(r.source)}" oninput="updRet(${idx},'source',this.value)">
-            </div>
-            <div>
-              <label>Destino</label>
-              <input value="${esc(r.destination)}" oninput="updRet(${idx},'destination',this.value)">
-            </div>
-            <div class="grid" style="grid-column:1/-1">
-              <label>Notas</label>
-              <input value="${esc(r.notes)}" oninput="updRet(${idx},'notes',this.value)">
-            </div>
+            <div><label>Fuente (AUX/MATRIX)</label><input list="dl-source" value="${esc(r.source)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'source',this.value)"></div>
+            <div><label>Destino</label><input list="dl-destination" value="${esc(r.destination)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'destination',this.value)"></div>
+            <div class="grid" style="grid-column:1/-1"><label>Notas</label><input list="dl-notes" value="${esc(r.notes)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'notes',this.value)"></div>
           </div>
         </div>
       `).join("");
     }
   }
 
+  let fieldEditArmed = false;
+  function startFieldEdit(){
+    if(!fieldEditArmed){
+      snapshot("field edit");
+      fieldEditArmed = true;
+      setTimeout(()=>fieldEditArmed=false, 700);
+    }
+  }
+
   function updCh(idx,key,val){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    s.channels[idx][key]=val; persist();
+    s.channels[idx][key]=val;
+    renderSearchResults();
   }
   function updRet(idx,key,val){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    s.returns[idx][key]=val; persist();
+    s.returns[idx][key]=val;
+    renderSearchResults();
   }
 
   function applyEditorMeta(){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    snapshot("editor meta");
     s.name = $("edName").value.trim() || s.name;
     s.zone = $("edZone").value.trim();
     s.color = $("edColor").value;
-    persist();
-    renderList();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect();
   }
 
   function autoDestinationsCurrent(){
-    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    const s = snakes().find(x=>x.id===editorSnakeId);
+    if(!s) return;
+
+    snapshot("auto destination");
+
     const base = prompt("Nombre base destino entradas:", "Rack A");
-    if(base===null) return;
+    if(base === null) return;
+
     const start = Number(prompt("Empezar en input #:", "1"));
-    if(Number.isNaN(start) || start < 1) return alert("Número inválido");
-    s.channels.forEach((c,i)=> c.destination = `${base} - Input ${String(start+i).padStart(2,"0")}`);
-    persist();
+    if(Number.isNaN(start) || start < 1) return alert("Inicio inválido.");
+
+    const endDefault = start + s.channels.length - 1;
+    const end = Number(prompt("Terminar en input #:", String(endDefault)));
+    if(Number.isNaN(end) || end < 1) return alert("Fin inválido.");
+    if(end < start) return alert("El final no puede ser menor que el inicio.");
+
+    const count = end - start + 1;
+    s.channels.forEach((c, i) => {
+      if(i < count){
+        const n = start + i;
+        c.destination = `${base} - Input ${String(n).padStart(2,"0")}`;
+      } else {
+        c.destination = "";
+      }
+    });
+
     renderEditorBody();
+    renderSearchResults();
+    alert(`Auto destino aplicado de ${start} a ${end}. El resto quedó vacío.`);
   }
 
-  function saveLocalNow(){ persist(); alert("Guardado local."); }
-  function loadLocalNow(){
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return alert("No hay guardado local.");
-    try{
-      const data = JSON.parse(raw);
-      if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
-      appData = { show: data.show || {name:"",artist:"",date:""}, snakes: data.snakes || [] };
-      normalize();
-      refreshShowInputs();
-      updateShowBadge();
-      renderList();
-      alert("Proyecto cargado.");
-    }catch(e){ alert("Error al cargar: " + e.message); }
+  function buildPortableStagepatchObject(){
+    return {
+      app: "StagePatch Pro",
+      format: "stagepatch",
+      schemaVersion: STAGEPATCH_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      payload: appData
+    };
   }
 
-  function exportJson(){
-    const blob = new Blob([JSON.stringify(appData,null,2)], {type:"application/json"});
+  function exportStagepatch(){
+    const portable = buildPortableStagepatchObject();
+    const blob = new Blob([JSON.stringify(portable, null, 2)], { type: STAGEPATCH_MIME });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     const safe = (appData.show.name || "show").replace(/[^\w\-]+/g,"_");
-    a.download = `stagepatch_${safe}.json`;
+    a.download = `stagepatch_${safe}${STAGEPATCH_EXT}`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
-  function importJson(){
+  function importStagepatch(){
     const i = document.createElement("input");
-    i.type = "file"; i.accept = "application/json";
+    i.type = "file";
+    i.accept = `${STAGEPATCH_EXT},${STAGEPATCH_MIME},application/json`;
     i.onchange = async ()=>{
       const f = i.files?.[0]; if(!f) return;
       try{
         const data = JSON.parse(await f.text());
-        if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
-        appData = { show:data.show || {name:"",artist:"",date:""}, snakes:data.snakes || [] };
+        if(data?.format === "stagepatch" && data?.payload){
+          snapshot("import stagepatch");
+          appData = {
+            show: data.payload.show || {name:"",artist:"",date:""},
+            snakes: data.payload.snakes || []
+          };
+        } else if (data && Array.isArray(data.snakes)) {
+          snapshot("import legacy");
+          appData = {
+            show: data.show || {name:"",artist:"",date:""},
+            snakes: data.snakes || []
+          };
+        } else {
+          throw new Error("Archivo no válido de StagePatch.");
+        }
         normalize();
         refreshShowInputs();
         updateShowBadge();
         renderList();
-      }catch(e){ alert("Error importando: " + e.message); }
+        renderSearchResults();
+        refreshPrintSnakeSelect();
+        refreshDatalists();
+        alert("Archivo importado correctamente.");
+      }catch(e){
+        alert("Error importando .stagepatch: " + e.message);
+      }
     };
     i.click();
   }
 
   function clearAll(){
     if(!confirm("¿Borrar toda la data?")) return;
+    snapshot("clear all");
     appData = { show:{name:"",artist:"",date:""}, snakes:[] };
-    persist();
     refreshShowInputs();
     updateShowBadge();
     renderList();
+    renderSearchResults();
+    refreshPrintSnakeSelect();
   }
 
   function refreshShowInputs(){
@@ -631,21 +894,180 @@
     $("showDate").value = appData.show.date || "";
   }
 
-  // events
+  function renderSearchResults(){
+    const q = $("search").value.trim().toLowerCase();
+    const wrap = $("searchResults");
+    const listEl = $("searchResultsList");
+
+    if(!q){
+      wrap.style.display = "none";
+      listEl.innerHTML = "";
+      return;
+    }
+
+    const hits = [];
+    snakes().forEach(s => {
+      s.channels.forEach(ch => {
+        const hay = [ch.source, ch.destination, ch.micType, ch.notes, s.name, s.zone, `ch ${ch.channel}`].join(" ").toLowerCase();
+        if(hay.includes(q)){
+          hits.push({
+            type: "Entrada", snakeId: s.id, snakeName: s.name, zone: s.zone || "-",
+            label: `CH ${ch.channel}`, source: ch.source || "-", destination: ch.destination || "-",
+            extra: ch.micType || "-", notes: ch.notes || "-", color: s.color
+          });
+        }
+      });
+
+      (s.returns || []).forEach(r => {
+        const hay = [r.label, r.source, r.destination, r.notes, s.name, s.zone, `out ${r.label}`].join(" ").toLowerCase();
+        if(hay.includes(q)){
+          hits.push({
+            type: "Salida", snakeId: s.id, snakeName: s.name, zone: s.zone || "-",
+            label: `OUT ${r.label}`, source: r.source || "-", destination: r.destination || "-",
+            extra: "-", notes: r.notes || "-", color: s.color
+          });
+        }
+      });
+    });
+
+    if(!hits.length){
+      wrap.style.display = "block";
+      listEl.innerHTML = `<div class="small">Sin resultados para "<b>${esc(q)}</b>".</div>`;
+      return;
+    }
+
+    wrap.style.display = "block";
+    listEl.innerHTML = hits.map(h => `
+      <div class="result-item">
+        <div class="result-top">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="dot" style="background:${h.color}"></span>
+            <strong>${esc(h.snakeName)}</strong>
+            <span class="badge">${h.type}</span>
+            <span class="badge">${esc(h.label)}</span>
+          </div>
+          <button onclick="openSnakeAndTab('${h.snakeId}','${h.type==='Entrada' ? 'inputs' : 'outputs'}')">Abrir</button>
+        </div>
+        <div class="result-grid">
+          <div><div class="k">Zona</div><div class="v">${esc(h.zone)}</div></div>
+          <div><div class="k">Fuente</div><div class="v">${esc(h.source)}</div></div>
+          <div><div class="k">Destino</div><div class="v">${esc(h.destination)}</div></div>
+          <div><div class="k">Mic/DI</div><div class="v">${esc(h.extra)}</div></div>
+          <div style="grid-column:1/-1"><div class="k">Notas</div><div class="v">${esc(h.notes)}</div></div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function refreshPrintSnakeSelect(){
+    const sel = $("printSnakeSelect");
+    const cur = sel.value;
+    sel.innerHTML = snakes().map(s=>`<option value="${s.id}">${esc(s.name)}${s.zone ? " · " + esc(s.zone) : ""}</option>`).join("");
+    if(cur && snakes().some(s=>s.id===cur)) sel.value = cur;
+  }
+
+  function getSnakesForPrint(){
+    const mode = $("printMode").value;
+    if(mode === "one"){
+      const id = $("printSnakeSelect").value;
+      return snakes().filter(s=>s.id===id);
+    }
+    return snakes();
+  }
+
+  function buildPrintView(){
+    const pv = $("printView");
+    const snakesData = getSnakesForPrint();
+
+    pv.innerHTML = `
+      <div class="print-page">
+        ${snakesData.map(s => `
+          <div class="print-snake" style="--snake-color:${esc(s.color || "#999")}">
+            <h3>${esc(s.name)} <span class="muted">(${s.zone ? esc(s.zone) : "Sin zona"})</span></h3>
+
+            <table class="print-table">
+              <thead>
+                <tr>
+                  <th style="width:60px">CH</th>
+                  <th>Fuente</th>
+                  <th>Destino</th>
+                  <th>Mic/DI</th>
+                  <th>Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(s.channels || []).map(c => `
+                  <tr>
+                    <td>CH ${esc(c.channel)}</td>
+                    <td>${esc(c.source || "")}</td>
+                    <td>${esc(c.destination || "")}</td>
+                    <td>${esc(c.micType || "")}</td>
+                    <td>${esc(c.notes || "")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+
+            <table class="print-table">
+              <thead>
+                <tr>
+                  <th style="width:60px">OUT</th>
+                  <th>Fuente</th>
+                  <th>Destino</th>
+                  <th>Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(s.returns || []).map(r => `
+                  <tr>
+                    <td>${esc(r.label || "")}</td>
+                    <td>${esc(r.source || "")}</td>
+                    <td>${esc(r.destination || "")}</td>
+                    <td>${esc(r.notes || "")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `).join("") || `<div>No hay mangueras para imprimir.</div>`}
+      </div>
+    `;
+  }
+
+  function doPrint(){
+    buildPrintView();
+    window.print();
+  }
+
   $("saveShowMeta").addEventListener("click", saveShowMeta);
   $("createSnake").addEventListener("click", createSnake);
   $("createFromTemplate").addEventListener("click", createFromTemplate);
-  $("search").addEventListener("input", renderList);
 
-  $("saveLocalBtn").addEventListener("click", saveLocalNow);
-  $("loadLocalBtn").addEventListener("click", loadLocalNow);
-  $("exportJson").addEventListener("click", exportJson);
-  $("importJson").addEventListener("click", importJson);
+  $("search").addEventListener("input", () => {
+    renderList();
+    renderSearchResults();
+  });
+
+  $("saveStagepatch").addEventListener("click", exportStagepatch);
+  $("importStagepatch").addEventListener("click", importStagepatch);
   $("clearAll").addEventListener("click", clearAll);
-  $("printBtn").addEventListener("click", ()=>window.print());
 
+  $("printMode").addEventListener("change", buildPrintView);
+  $("printSnakeSelect").addEventListener("change", buildPrintView);
+
+  $("printBtn").addEventListener("click", doPrint);
   $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
-  $("quickPrint").addEventListener("click", ()=>window.print());
+  $("quickPrint").addEventListener("click", doPrint);
+
+  $("undoBtn").addEventListener("click", undo);
+  $("redoBtn").addEventListener("click", redo);
+
+  document.addEventListener("keydown", (e)=>{
+    const key = e.key.toLowerCase();
+    const mod = e.ctrlKey || e.metaKey;
+    if(mod && key === "z" && !e.shiftKey){ e.preventDefault(); undo(); }
+    if((mod && key === "y") || (mod && e.shiftKey && key === "z")){ e.preventDefault(); redo(); }
+  });
 
   $("closeEditor").addEventListener("click", ()=>{
     applyEditorMeta();
@@ -658,18 +1080,27 @@
   $("edColor").addEventListener("input", applyEditorMeta);
   $("autoDestBtn").addEventListener("click", autoDestinationsCurrent);
 
-  // expose inline
   window.openEditor = openEditor;
+  window.openSnakeAndTab = openSnakeAndTab;
   window.deleteSnake = deleteSnake;
   window.duplicateSnake = duplicateSnake;
   window.updCh = updCh;
   window.updRet = updRet;
+  window.startFieldEdit = startFieldEdit;
 
-  // init
+  tryRestoreBackup();
   normalize();
   refreshShowInputs();
   updateShowBadge();
   renderList();
+  renderSearchResults();
+  refreshPrintSnakeSelect();
+  refreshDatalists();
+  buildPrintView();
+  updateUndoRedoButtons();
+
+  setInterval(autosaveNow, 10000);
+  autosaveNow();
 </script>
 </body>
 </html>
