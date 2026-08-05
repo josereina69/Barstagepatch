@@ -3,248 +3,319 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StagePatch Pro — Gestor de Subsnakes y Patch de Escenario</title>
+  <title>StagePatch Pro — Mobile First</title>
   <style>
     :root{
-      --bg:#0b1020; --panel:#11172b; --panel2:#1a223d; --line:#2d3a66;
-      --txt:#e8eeff; --muted:#9fb0df; --accent:#4f8cff; --danger:#ef4444;
+      --bg:#0b1020; --panel:#121a33; --panel2:#1a2547; --line:#2e3b6b;
+      --txt:#eef3ff; --muted:#a8b6de; --accent:#4f8cff; --danger:#ef4444; --ok:#22c55e;
     }
     *{box-sizing:border-box}
     body{
-      margin:0; background:linear-gradient(180deg,#080c18,#0b1020); color:var(--txt);
-      font-family:Inter,system-ui,Segoe UI,Roboto,Arial; padding:14px;
+      margin:0; background:linear-gradient(180deg,#080d1c,#0b1020);
+      color:var(--txt); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
     }
-    .wrap{max-width:1200px; margin:0 auto; display:grid; gap:12px}
-    .card{background:rgba(17,23,43,.96); border:1px solid var(--line); border-radius:14px; padding:12px}
-    h1{margin:0 0 4px; font-size:1.12rem}
-    .sub{color:var(--muted); font-size:.88rem}
-    .grid{display:grid; gap:8px; grid-template-columns:repeat(12,1fr)}
-    .col-2{grid-column:span 2}.col-3{grid-column:span 3}.col-4{grid-column:span 4}
-    .col-6{grid-column:span 6}.col-8{grid-column:span 8}.col-12{grid-column:span 12}
-    @media(max-width:900px){.col-2,.col-3,.col-4,.col-6,.col-8{grid-column:span 12}}
+    .app{max-width:980px; margin:0 auto; padding:12px 12px 90px}
+    .card{
+      background:rgba(18,26,51,.96); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px;
+    }
+    h1{margin:0; font-size:1.08rem}
+    .sub{margin-top:4px; color:var(--muted); font-size:.86rem}
 
-    label{font-size:.78rem; color:var(--muted); display:block; margin-bottom:5px}
-    input,select,textarea,button{
-      width:100%; background:var(--panel2); color:var(--txt);
-      border:1px solid var(--line); border-radius:10px; padding:9px; font-size:.92rem;
+    label{display:block; font-size:.78rem; color:var(--muted); margin-bottom:5px}
+    input,select,button{
+      width:100%; border:1px solid var(--line); border-radius:10px;
+      background:var(--panel2); color:var(--txt); padding:11px; font-size:16px;
     }
-    textarea{min-height:40px; resize:vertical}
     button{cursor:pointer}
-    .row{display:flex; gap:8px; flex-wrap:wrap}
-    .row button{width:auto}
-    .btn{background:var(--accent); border-color:#6ea1ff}
-    .btn-danger{background:#3b1117; border-color:#7f1d1d}
+    .btn{background:var(--accent); border-color:#76a5ff}
+    .btn-danger{background:#3a1419; border-color:#7f1d1d}
     .btn-ghost{background:transparent}
+    .btn-ok{background:#10331f; border-color:#1f7a43}
 
-    .snake{border:1px solid var(--line); border-radius:12px; overflow:hidden}
-    .snake-head{
-      display:flex; gap:8px; align-items:center; justify-content:space-between;
-      padding:10px; background:#0f1630; border-bottom:1px solid var(--line);
-      flex-wrap:wrap;
+    .grid{display:grid; gap:8px}
+    .grid-2{grid-template-columns:1fr 1fr}
+    .grid-3{grid-template-columns:1fr 1fr 1fr}
+    @media (max-width:720px){ .grid-2,.grid-3{grid-template-columns:1fr} }
+
+    .row{display:flex; gap:8px; flex-wrap:wrap}
+    .row > *{flex:1 1 140px}
+
+    .show-pill{
+      display:inline-block; padding:6px 10px; border:1px solid #3d56a3;
+      border-radius:999px; font-size:.82rem; background:#16244d; margin-top:8px;
     }
-    .snake-title{display:flex; align-items:center; gap:10px; min-width:0}
-    .dot{width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.35)}
-    .snake-name{font-weight:700}
-    .meta{font-size:.82rem; color:var(--muted)}
-    .snake-body{padding:10px}
+
+    .snake-item{
+      border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px;
+      background:#101831;
+    }
+    .snake-head{
+      display:flex; align-items:center; gap:8px; justify-content:space-between;
+    }
+    .snake-title-wrap{display:flex; gap:8px; align-items:center; min-width:0}
+    .dot{width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.4)}
+    .snake-title{font-weight:700; font-size:.95rem}
+    .snake-meta{font-size:.8rem; color:var(--muted)}
+    .snake-actions{display:flex; gap:6px}
+    .snake-actions button{padding:8px 10px; font-size:.82rem}
+
+    .editor{
+      position:fixed; inset:0; background:rgba(4,8,20,.82); backdrop-filter:blur(2px);
+      display:none; z-index:20; padding:8px;
+    }
+    .editor.open{display:block}
+    .editor-panel{
+      max-width:980px; margin:0 auto; height:100%;
+      background:var(--bg); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+      display:flex; flex-direction:column;
+    }
+    .editor-top{
+      padding:10px; border-bottom:1px solid var(--line); background:#0f1730;
+      display:grid; gap:8px;
+    }
+    .tabs{display:flex; gap:8px}
+    .tab{
+      flex:1; text-align:center; padding:10px; border:1px solid var(--line); border-radius:10px; background:#162247; cursor:pointer;
+    }
+    .tab.active{background:var(--accent); border-color:#76a5ff}
+    .editor-body{
+      padding:10px; overflow:auto; flex:1;
+    }
+
+    .patch-card{
+      border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px; background:#101a38;
+    }
+    .patch-title{
+      font-weight:700; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;
+    }
     .small{font-size:.8rem; color:var(--muted)}
 
-    .desktop-table{display:block; overflow:auto}
-    table{width:100%; border-collapse:collapse; min-width:900px}
-    th,td{border:1px solid var(--line); padding:7px; text-align:left; vertical-align:top}
-    th{background:#111a37}
-    .chan{font-weight:700; width:70px}
-
-    .mobile-list{display:none; gap:8px}
-    .ch-card{
-      border:1px solid var(--line); border-radius:10px; padding:8px; background:#0f1630;
-      display:grid; gap:6px;
+    .sticky-bottom{
+      position:fixed; left:0; right:0; bottom:0; background:#0b1226;
+      border-top:1px solid var(--line); padding:8px; z-index:10;
     }
-    .ch-title{font-weight:700; font-size:.9rem}
-
-    .show-badge{
-      display:inline-block; margin-top:6px; font-size:.82rem; color:#dbe6ff;
-      background:#1b2957; border:1px solid #3656b1; border-radius:999px; padding:4px 10px;
-    }
-
-    @media(max-width:760px){
-      .desktop-table{display:none}
-      .mobile-list{display:grid}
-      body{padding:10px}
-      .card{padding:10px}
-      input,select,textarea,button{font-size:16px;}
-      .row button{width:100%}
-    }
+    .sticky-wrap{max-width:980px; margin:0 auto; display:flex; gap:8px}
+    .sticky-wrap button{flex:1}
 
     @media print{
-      body{background:#fff; color:#000; padding:0}
-      .no-print{display:none !important}
-      .card,.snake{border:1px solid #999; background:#fff; color:#000}
-      input,select,textarea{border:0; background:transparent; color:#000; padding:0}
-      .dot{border-color:#000}
-      .desktop-table{display:block !important}
-      .mobile-list{display:none !important}
-      .snake{page-break-inside:avoid; margin-bottom:10px}
-      .show-badge{background:#fff; color:#000; border-color:#000}
+      .no-print,.editor,.sticky-bottom{display:none !important}
+      body{background:#fff; color:#000}
+      .card,.snake-item{background:#fff; border:1px solid #aaa}
     }
   </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
   <div class="card no-print">
     <h1>StagePatch Pro</h1>
-    <div class="sub">Gestión profesional de subsnakes, patch list y ruteo de escenario.</div>
+    <div class="sub">Diseño móvil intuitivo para patch de escenario.</div>
   </div>
 
   <div class="card">
-    <div class="grid">
-      <div class="col-4">
-        <label>Nombre del show / gira</label>
-        <input id="showName" placeholder="Ej: Tour 2026 - Ciudad de México" />
+    <div class="grid grid-3">
+      <div>
+        <label>Show / Gira</label>
+        <input id="showName" placeholder="Ej: Tour 2026 CDMX">
       </div>
-      <div class="col-3">
-        <label>Artista / Banda</label>
-        <input id="artistName" placeholder="Ej: Mi Banda" />
+      <div>
+        <label>Artista</label>
+        <input id="artistName" placeholder="Ej: Mi Banda">
       </div>
-      <div class="col-3">
+      <div>
         <label>Fecha</label>
-        <input id="showDate" type="date" />
-      </div>
-      <div class="col-2">
-        <label>&nbsp;</label>
-        <button id="saveShowMeta" class="btn-ghost">Guardar show</button>
-      </div>
-      <div class="col-12">
-        <span class="show-badge" id="showBadge">Show: Sin definir</span>
+        <input id="showDate" type="date">
       </div>
     </div>
+    <div class="row" style="margin-top:8px">
+      <button id="saveShowMeta" class="btn-ghost">Guardar show</button>
+      <button id="printBtn" class="btn-ghost no-print">Imprimir</button>
+    </div>
+    <span class="show-pill" id="showBadge">Show: Sin definir</span>
   </div>
 
   <div class="card no-print">
-    <div class="grid">
-      <div class="col-3">
-        <label>Nombre del subsnake</label>
-        <input id="snakeName" placeholder="Ej: Subsnake Batería L" />
+    <div class="grid grid-3">
+      <div>
+        <label>Nombre subsnake</label>
+        <input id="snakeName" placeholder="Ej: Subsnake Batería L">
       </div>
-      <div class="col-2">
-        <label>Canales</label>
+      <div>
+        <label>Entradas</label>
         <select id="snakeChannels">
           <option>4</option><option>8</option><option selected>12</option><option>16</option><option>24</option>
         </select>
       </div>
-      <div class="col-2">
+      <div>
+        <label>Salidas (A-H)</label>
+        <select id="snakeReturnsCount">
+          <option>4</option><option>5</option><option>6</option><option>7</option><option selected>8</option>
+        </select>
+      </div>
+      <div>
         <label>Color</label>
-        <input id="snakeColor" type="color" value="#4f8cff" />
+        <input id="snakeColor" type="color" value="#4f8cff">
       </div>
-      <div class="col-3">
+      <div>
         <label>Zona</label>
-        <input id="snakeZone" placeholder="Ej: Tarima Izquierda" />
+        <input id="snakeZone" placeholder="Tarima Izquierda">
       </div>
-      <div class="col-2">
+      <div>
         <label>&nbsp;</label>
-        <button class="btn" id="createSnake">Crear subsnake</button>
+        <button id="createSnake" class="btn">Crear subsnake</button>
       </div>
     </div>
 
     <hr style="border-color:var(--line); opacity:.4; margin:10px 0">
-
-    <div class="grid">
-      <div class="col-3">
-        <label>Plantillas rápidas</label>
+    <div class="grid grid-3">
+      <div>
+        <label>Plantilla</label>
         <select id="tplType">
-          <option value="">Selecciona plantilla...</option>
+          <option value="">Selecciona...</option>
           <option value="drums">Batería (12ch)</option>
           <option value="voces">Voces (8ch)</option>
           <option value="metales">Metales (8ch)</option>
         </select>
       </div>
-      <div class="col-3">
+      <div>
         <label>Nombre plantilla</label>
-        <input id="tplName" placeholder="Ej: Voces Principal" />
+        <input id="tplName" placeholder="Ej: Voces Principal">
       </div>
-      <div class="col-3">
+      <div>
         <label>Zona plantilla</label>
-        <input id="tplZone" placeholder="Ej: Frente Escenario" />
+        <input id="tplZone" placeholder="Frente Escenario">
       </div>
-      <div class="col-3">
-        <label>&nbsp;</label>
-        <button id="createFromTemplate">Crear desde plantilla</button>
-      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="createFromTemplate">Crear desde plantilla</button>
     </div>
   </div>
 
   <div class="card no-print">
-    <div class="grid">
-      <div class="col-4">
+    <div class="grid grid-2">
+      <div>
         <label>Buscar</label>
-        <input id="search" placeholder="Nombre, zona, canal, fuente, destino..." />
+        <input id="search" placeholder="snake, canal, fuente, destino...">
       </div>
-      <div class="col-8">
-        <label>&nbsp;</label>
+      <div>
+        <label>Acciones</label>
         <div class="row">
-          <button class="btn-ghost" id="saveLocalBtn">Guardar local</button>
-          <button class="btn-ghost" id="loadLocalBtn">Cargar local</button>
-          <button class="btn-ghost" id="exportJson">Exportar JSON</button>
-          <button class="btn-ghost" id="importJson">Importar JSON</button>
-          <button class="btn-ghost" id="printBtn">Imprimir patch list</button>
-          <button class="btn-danger" id="clearAll">Borrar todo</button>
+          <button id="saveLocalBtn" class="btn-ok">Guardar local</button>
+          <button id="loadLocalBtn">Cargar local</button>
+          <button id="exportJson">Exportar JSON</button>
+          <button id="importJson">Importar JSON</button>
+          <button id="clearAll" class="btn-danger">Borrar todo</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="snakesContainer"></div>
+  <div class="card">
+    <div class="sub" style="margin-bottom:8px">Subsnakes</div>
+    <div id="snakesList"></div>
+  </div>
+</div>
+
+<!-- Editor full-screen -->
+<div id="editor" class="editor no-print">
+  <div class="editor-panel">
+    <div class="editor-top">
+      <div class="row">
+        <button id="closeEditor">← Volver</button>
+        <button id="autoDestBtn">Auto destino entradas</button>
+      </div>
+      <div class="grid grid-3">
+        <div>
+          <label>Nombre</label>
+          <input id="edName">
+        </div>
+        <div>
+          <label>Zona</label>
+          <input id="edZone">
+        </div>
+        <div>
+          <label>Color</label>
+          <input id="edColor" type="color">
+        </div>
+      </div>
+      <div class="tabs">
+        <div id="tabInputs" class="tab active">Entradas</div>
+        <div id="tabOutputs" class="tab">Salidas A-H</div>
+      </div>
+    </div>
+    <div id="editorBody" class="editor-body"></div>
+  </div>
+</div>
+
+<div class="sticky-bottom no-print">
+  <div class="sticky-wrap">
+    <button id="quickNew" class="btn">+ Nuevo subsnake</button>
+    <button id="quickPrint">Imprimir</button>
+  </div>
 </div>
 
 <script>
-  const LS_KEY = "subsnakes_planner_v4";
+  const LS_KEY = "stagepatch_mobile_v1";
+  const RETURN_LABELS = ["A","B","C","D","E","F","G","H"];
   let appData = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
     show: { name:"", artist:"", date:"" },
     snakes: []
   };
 
+  let editorSnakeId = null;
+  let activeTab = "inputs"; // inputs | outputs
+
   const $ = id => document.getElementById(id);
-  const esc = s => String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  })[m]);
 
   function persist(){ localStorage.setItem(LS_KEY, JSON.stringify(appData)); }
   function snakes(){ return appData.snakes; }
+  function clampR(n){ return Math.min(8, Math.max(4, Number(n) || 4)); }
 
-  function saveLocalNow(){
-    persist();
-    alert("Proyecto guardado localmente.");
+  function makeChannels(n){
+    return Array.from({length:n}, (_,i)=>({
+      channel:i+1, source:"", destination:"", micType:"", notes:""
+    }));
+  }
+  function makeReturns(count=4){
+    const c = clampR(count);
+    return RETURN_LABELS.slice(0,c).map(l=>({label:l, source:"", destination:"", notes:""}));
   }
 
-  function loadLocalNow(){
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw){
-      alert("No hay proyecto guardado localmente.");
-      return;
-    }
-    try{
-      const data = JSON.parse(raw);
-      if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
-      appData = {
-        show: data.show || {name:"",artist:"",date:""},
-        snakes: data.snakes || []
+  function normalize(){
+    appData.show = appData.show || {name:"",artist:"",date:""};
+    appData.snakes = (appData.snakes || []).map(s=>{
+      const channels = Array.isArray(s.channels) ? s.channels : makeChannels(Number(s.channelsCount)||8);
+      const channelsCount = Number(s.channelsCount) || channels.length || 8;
+      const returnsCount = clampR(s.returnsCount);
+      const returnsOld = Array.isArray(s.returns) ? s.returns : [];
+      const returns = RETURN_LABELS.slice(0, returnsCount).map((l, i)=>({
+        label:l,
+        source: returnsOld[i]?.source || "",
+        destination: returnsOld[i]?.destination || "",
+        notes: returnsOld[i]?.notes || ""
+      }));
+      return {
+        ...s,
+        channelsCount,
+        channels: channels.map((c,i)=>({
+          channel: c.channel || i+1,
+          source:c.source||"", destination:c.destination||"",
+          micType:c.micType||"", notes:c.notes||""
+        })),
+        returnsCount,
+        returns
       };
-      $("showName").value = appData.show.name || "";
-      $("artistName").value = appData.show.artist || "";
-      $("showDate").value = appData.show.date || "";
-      updateShowBadge();
-      render();
-      alert("Proyecto cargado localmente.");
-    }catch(e){
-      alert("Error al cargar guardado local: " + e.message);
-    }
+    });
+    persist();
   }
 
   function updateShowBadge(){
     const s = appData.show;
-    const name = s.name || "Sin definir";
-    const artist = s.artist ? ` · ${s.artist}` : "";
-    const date = s.date ? ` · ${s.date}` : "";
-    $("showBadge").textContent = `Show: ${name}${artist}${date}`;
-    document.title = s.name ? `StagePatch Pro — ${s.name}` : "StagePatch Pro — Gestor de Subsnakes y Patch de Escenario";
+    const txt = `${s.name || "Sin definir"}${s.artist ? " · " + s.artist : ""}${s.date ? " · " + s.date : ""}`;
+    $("showBadge").textContent = "Show: " + txt;
+    document.title = s.name ? `StagePatch Pro — ${s.name}` : "StagePatch Pro — Mobile First";
   }
 
   function saveShowMeta(){
@@ -253,34 +324,37 @@
     appData.show.date = $("showDate").value;
     persist();
     updateShowBadge();
-    alert("Datos de show/gira guardados.");
+    alert("Show guardado.");
   }
 
-  function makeChannels(n){
-    return Array.from({length:n}, (_,i)=>({ channel:i+1, source:"", destination:"", micType:"", notes:"" }));
-  }
-
-  function createSnakeFromData({name, channelsCount, color, zone, channels}){
+  function createSnakeFromData({name, channelsCount, returnsCount, color, zone, channels, returns}){
+    const chN = Number(channelsCount) || 8;
+    const rN = clampR(returnsCount);
     snakes().unshift({
       id: crypto.randomUUID(),
       name: name || `Subsnake ${snakes().length+1}`,
-      channelsCount,
+      channelsCount: chN,
+      returnsCount: rN,
       color: color || "#4f8cff",
       zone: zone || "",
-      channels: channels || makeChannels(channelsCount),
+      channels: channels || makeChannels(chN),
+      returns: returns || makeReturns(rN),
       createdAt: new Date().toISOString()
     });
-    persist(); render();
+    persist();
+    renderList();
   }
 
   function createSnake(){
     createSnakeFromData({
       name: $("snakeName").value.trim(),
       channelsCount: Number($("snakeChannels").value),
+      returnsCount: Number($("snakeReturnsCount").value),
       color: $("snakeColor").value,
       zone: $("snakeZone").value.trim()
     });
-    $("snakeName").value=""; $("snakeZone").value="";
+    $("snakeName").value = "";
+    $("snakeZone").value = "";
   }
 
   function getTemplate(type){
@@ -306,40 +380,29 @@
   }
 
   function createFromTemplate(){
-    const type = $("tplType").value;
-    const tpl = getTemplate(type);
-    if(!tpl){ alert("Selecciona una plantilla."); return; }
+    const tpl = getTemplate($("tplType").value);
+    if(!tpl) return alert("Selecciona una plantilla.");
     const name = $("tplName").value.trim() || tpl.defaultName;
     const zone = $("tplZone").value.trim();
-    const channels = tpl.sources.map((s,i)=>({ channel:i+1, source:s, destination:"", micType:"", notes:"" }));
-    createSnakeFromData({ name, zone, channelsCount:tpl.channelsCount, color:tpl.defaultColor, channels });
-    $("tplName").value=""; $("tplZone").value="";
+    const channels = tpl.sources.map((src,i)=>({
+      channel:i+1, source:src, destination:"", micType:"", notes:""
+    }));
+    createSnakeFromData({
+      name, zone,
+      channelsCount: tpl.channelsCount,
+      returnsCount: Number($("snakeReturnsCount").value || 4),
+      color: tpl.defaultColor,
+      channels
+    });
+    $("tplName").value = "";
+    $("tplZone").value = "";
   }
 
   function deleteSnake(id){
     if(!confirm("¿Eliminar este subsnake?")) return;
     appData.snakes = snakes().filter(s=>s.id!==id);
-    persist(); render();
-  }
-
-  function updateSnakeMeta(id,key,val){
-    const s = snakes().find(x=>x.id===id); if(!s) return;
-    s[key]=val; persist();
-  }
-
-  function updateChannel(id, idx, key, val){
-    const s = snakes().find(x=>x.id===id); if(!s) return;
-    s.channels[idx][key]=val; persist();
-  }
-
-  function autoDestinations(id){
-    const s = snakes().find(x=>x.id===id); if(!s) return;
-    const rack = prompt("Nombre base de destino:", "Rack A");
-    if(rack===null) return;
-    const start = Number(prompt("Empezar en input #:", "1"));
-    if(Number.isNaN(start) || start<1) return alert("Número inválido.");
-    s.channels.forEach((c,i)=> c.destination = `${rack} - Input ${String(start+i).padStart(2,"0")}`);
-    persist(); render();
+    persist();
+    renderList();
   }
 
   function duplicateSnake(id){
@@ -347,144 +410,266 @@
     const cp = JSON.parse(JSON.stringify(s));
     cp.id = crypto.randomUUID();
     cp.name = s.name + " (copia)";
-    snakes().unshift(cp); persist(); render();
+    snakes().unshift(cp);
+    persist();
+    renderList();
   }
 
-  function render(){
+  function renderList(){
     const q = $("search").value.trim().toLowerCase();
-    const box = $("snakesContainer");
-    box.innerHTML = "";
+    const el = $("snakesList");
+    el.innerHTML = "";
 
-    const filtered = snakes().filter(s=>{
+    const list = snakes().filter(s=>{
       if(!q) return true;
-      const hay = [s.name,s.zone,s.channelsCount,...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes])]
-        .join(" ").toLowerCase();
-      return hay.includes(q);
+      const retText = (s.returns||[]).flatMap(r=>[r.label,r.source,r.destination,r.notes]).join(" ");
+      const txt = [
+        s.name,s.zone,s.channelsCount,s.returnsCount,
+        ...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes]),
+        retText
+      ].join(" ").toLowerCase();
+      return txt.includes(q);
     });
 
-    filtered.forEach(s=>{
-      const el = document.createElement("div");
-      el.className = "card snake";
-      el.innerHTML = `
+    if(!list.length){
+      el.innerHTML = `<div class="small">No hay subsnakes aún.</div>`;
+      return;
+    }
+
+    list.forEach(s=>{
+      const item = document.createElement("div");
+      item.className = "snake-item";
+      item.innerHTML = `
         <div class="snake-head">
-          <div class="snake-title">
+          <div class="snake-title-wrap">
             <span class="dot" style="background:${s.color}"></span>
             <div>
-              <div class="snake-name">${esc(s.name)}</div>
-              <div class="meta">${s.channelsCount} canales ${s.zone ? "• " + esc(s.zone) : ""}</div>
+              <div class="snake-title">${esc(s.name)}</div>
+              <div class="snake-meta">${s.channelsCount} entradas + ${s.returnsCount} salidas ${s.zone ? "• " + esc(s.zone) : ""}</div>
             </div>
           </div>
-          <div class="row no-print">
-            <button onclick="autoDestinations('${s.id}')">Auto destino 01..NN</button>
-            <button onclick="duplicateSnake('${s.id}')">Duplicar</button>
-            <button class="btn-danger" onclick="deleteSnake('${s.id}')">Eliminar</button>
-          </div>
-        </div>
-
-        <div class="snake-body">
-          <div class="grid no-print" style="margin-bottom:10px">
-            <div class="col-4"><label>Nombre</label><input value="${esc(s.name)}" oninput="updateSnakeMeta('${s.id}','name',this.value)" /></div>
-            <div class="col-3"><label>Zona</label><input value="${esc(s.zone||"")}" oninput="updateSnakeMeta('${s.id}','zone',this.value)" /></div>
-            <div class="col-2"><label>Color</label><input type="color" value="${s.color}" oninput="updateSnakeMeta('${s.id}','color',this.value); render();" /></div>
-            <div class="col-3 small" style="display:flex;align-items:end">Edita el patch por canal.</div>
-          </div>
-
-          <div class="desktop-table">
-            <table>
-              <thead><tr><th class="chan">Canal</th><th>Fuente</th><th>Destino</th><th>Mic/DI</th><th>Notas</th></tr></thead>
-              <tbody>
-                ${s.channels.map((c,idx)=>`
-                  <tr>
-                    <td class="chan">CH ${c.channel}</td>
-                    <td><input value="${esc(c.source)}" oninput="updateChannel('${s.id}',${idx},'source',this.value)" /></td>
-                    <td><input value="${esc(c.destination)}" oninput="updateChannel('${s.id}',${idx},'destination',this.value)" /></td>
-                    <td><input value="${esc(c.micType)}" oninput="updateChannel('${s.id}',${idx},'micType',this.value)" /></td>
-                    <td><input value="${esc(c.notes)}" oninput="updateChannel('${s.id}',${idx},'notes',this.value)" /></td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mobile-list">
-            ${s.channels.map((c,idx)=>`
-              <div class="ch-card">
-                <div class="ch-title">CH ${c.channel}</div>
-                <div><label>Fuente</label><input value="${esc(c.source)}" oninput="updateChannel('${s.id}',${idx},'source',this.value)" /></div>
-                <div><label>Destino</label><input value="${esc(c.destination)}" oninput="updateChannel('${s.id}',${idx},'destination',this.value)" /></div>
-                <div><label>Mic/DI</label><input value="${esc(c.micType)}" oninput="updateChannel('${s.id}',${idx},'micType',this.value)" /></div>
-                <div><label>Notas</label><input value="${esc(c.notes)}" oninput="updateChannel('${s.id}',${idx},'notes',this.value)" /></div>
-              </div>
-            `).join("")}
+          <div class="snake-actions">
+            <button onclick="openEditor('${s.id}')">Editar</button>
+            <button onclick="duplicateSnake('${s.id}')">Dup</button>
+            <button class="btn-danger" onclick="deleteSnake('${s.id}')">X</button>
           </div>
         </div>
       `;
-      box.appendChild(el);
+      el.appendChild(item);
     });
   }
 
-  // eventos
+  function openEditor(id){
+    editorSnakeId = id;
+    activeTab = "inputs";
+    $("tabInputs").classList.add("active");
+    $("tabOutputs").classList.remove("active");
+    $("editor").classList.add("open");
+    renderEditor();
+  }
+
+  function closeEditor(){
+    $("editor").classList.remove("open");
+    editorSnakeId = null;
+  }
+
+  function setTab(tab){
+    activeTab = tab;
+    $("tabInputs").classList.toggle("active", tab==="inputs");
+    $("tabOutputs").classList.toggle("active", tab==="outputs");
+    renderEditorBody();
+  }
+
+  function renderEditor(){
+    const s = snakes().find(x=>x.id===editorSnakeId);
+    if(!s) return closeEditor();
+
+    $("edName").value = s.name || "";
+    $("edZone").value = s.zone || "";
+    $("edColor").value = s.color || "#4f8cff";
+
+    renderEditorBody();
+  }
+
+  function renderEditorBody(){
+    const s = snakes().find(x=>x.id===editorSnakeId);
+    if(!s) return;
+
+    const body = $("editorBody");
+    if(activeTab==="inputs"){
+      body.innerHTML = s.channels.map((c,idx)=>`
+        <div class="patch-card">
+          <div class="patch-title">CH ${c.channel} <span class="small">Entrada</span></div>
+          <div class="grid grid-2">
+            <div>
+              <label>Fuente</label>
+              <input value="${esc(c.source)}" oninput="updCh(${idx},'source',this.value)">
+            </div>
+            <div>
+              <label>Destino</label>
+              <input value="${esc(c.destination)}" oninput="updCh(${idx},'destination',this.value)">
+            </div>
+            <div>
+              <label>Mic / DI</label>
+              <input value="${esc(c.micType)}" oninput="updCh(${idx},'micType',this.value)">
+            </div>
+            <div>
+              <label>Notas</label>
+              <input value="${esc(c.notes)}" oninput="updCh(${idx},'notes',this.value)">
+            </div>
+          </div>
+        </div>
+      `).join("");
+    } else {
+      body.innerHTML = s.returns.map((r,idx)=>`
+        <div class="patch-card">
+          <div class="patch-title">OUT ${r.label} <span class="small">Salida</span></div>
+          <div class="grid grid-2">
+            <div>
+              <label>Fuente (AUX/MATRIX)</label>
+              <input value="${esc(r.source)}" oninput="updRet(${idx},'source',this.value)">
+            </div>
+            <div>
+              <label>Destino</label>
+              <input value="${esc(r.destination)}" oninput="updRet(${idx},'destination',this.value)">
+            </div>
+            <div class="grid" style="grid-column:1/-1">
+              <label>Notas</label>
+              <input value="${esc(r.notes)}" oninput="updRet(${idx},'notes',this.value)">
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+  }
+
+  function updCh(idx,key,val){
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    s.channels[idx][key]=val; persist();
+  }
+  function updRet(idx,key,val){
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    s.returns[idx][key]=val; persist();
+  }
+
+  function applyEditorMeta(){
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    s.name = $("edName").value.trim() || s.name;
+    s.zone = $("edZone").value.trim();
+    s.color = $("edColor").value;
+    persist();
+    renderList();
+  }
+
+  function autoDestinationsCurrent(){
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    const base = prompt("Nombre base destino entradas:", "Rack A");
+    if(base===null) return;
+    const start = Number(prompt("Empezar en input #:", "1"));
+    if(Number.isNaN(start) || start < 1) return alert("Número inválido");
+    s.channels.forEach((c,i)=> c.destination = `${base} - Input ${String(start+i).padStart(2,"0")}`);
+    persist();
+    renderEditorBody();
+  }
+
+  function saveLocalNow(){ persist(); alert("Guardado local."); }
+  function loadLocalNow(){
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return alert("No hay guardado local.");
+    try{
+      const data = JSON.parse(raw);
+      if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
+      appData = { show: data.show || {name:"",artist:"",date:""}, snakes: data.snakes || [] };
+      normalize();
+      refreshShowInputs();
+      updateShowBadge();
+      renderList();
+      alert("Proyecto cargado.");
+    }catch(e){ alert("Error al cargar: " + e.message); }
+  }
+
+  function exportJson(){
+    const blob = new Blob([JSON.stringify(appData,null,2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const safe = (appData.show.name || "show").replace(/[^\w\-]+/g,"_");
+    a.download = `stagepatch_${safe}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function importJson(){
+    const i = document.createElement("input");
+    i.type = "file"; i.accept = "application/json";
+    i.onchange = async ()=>{
+      const f = i.files?.[0]; if(!f) return;
+      try{
+        const data = JSON.parse(await f.text());
+        if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
+        appData = { show:data.show || {name:"",artist:"",date:""}, snakes:data.snakes || [] };
+        normalize();
+        refreshShowInputs();
+        updateShowBadge();
+        renderList();
+      }catch(e){ alert("Error importando: " + e.message); }
+    };
+    i.click();
+  }
+
+  function clearAll(){
+    if(!confirm("¿Borrar toda la data?")) return;
+    appData = { show:{name:"",artist:"",date:""}, snakes:[] };
+    persist();
+    refreshShowInputs();
+    updateShowBadge();
+    renderList();
+  }
+
+  function refreshShowInputs(){
+    $("showName").value = appData.show.name || "";
+    $("artistName").value = appData.show.artist || "";
+    $("showDate").value = appData.show.date || "";
+  }
+
+  // events
   $("saveShowMeta").addEventListener("click", saveShowMeta);
   $("createSnake").addEventListener("click", createSnake);
   $("createFromTemplate").addEventListener("click", createFromTemplate);
-  $("search").addEventListener("input", render);
+  $("search").addEventListener("input", renderList);
 
   $("saveLocalBtn").addEventListener("click", saveLocalNow);
   $("loadLocalBtn").addEventListener("click", loadLocalNow);
-
+  $("exportJson").addEventListener("click", exportJson);
+  $("importJson").addEventListener("click", importJson);
+  $("clearAll").addEventListener("click", clearAll);
   $("printBtn").addEventListener("click", ()=>window.print());
 
-  $("exportJson").addEventListener("click", ()=>{
-    const blob = new Blob([JSON.stringify(appData,null,2)],{type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    const showSafe = (appData.show.name || "show").replace(/[^\w\-]+/g,"_");
-    a.download = `patch_${showSafe}.json`;
-    a.click(); URL.revokeObjectURL(a.href);
-  });
+  $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
+  $("quickPrint").addEventListener("click", ()=>window.print());
 
-  $("importJson").addEventListener("click", ()=>{
-    const i=document.createElement("input"); i.type="file"; i.accept="application/json";
-    i.onchange=async()=>{
-      const f=i.files?.[0]; if(!f) return;
-      try{
-        const data=JSON.parse(await f.text());
-        if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
-        appData = {
-          show: data.show || {name:"",artist:"",date:""},
-          snakes: data.snakes
-        };
-        persist();
-        $("showName").value = appData.show.name || "";
-        $("artistName").value = appData.show.artist || "";
-        $("showDate").value = appData.show.date || "";
-        updateShowBadge();
-        render();
-      }catch(e){ alert("Error importando: "+e.message); }
-    };
-    i.click();
+  $("closeEditor").addEventListener("click", ()=>{
+    applyEditorMeta();
+    closeEditor();
   });
+  $("tabInputs").addEventListener("click", ()=>setTab("inputs"));
+  $("tabOutputs").addEventListener("click", ()=>setTab("outputs"));
+  $("edName").addEventListener("input", applyEditorMeta);
+  $("edZone").addEventListener("input", applyEditorMeta);
+  $("edColor").addEventListener("input", applyEditorMeta);
+  $("autoDestBtn").addEventListener("click", autoDestinationsCurrent);
 
-  $("clearAll").addEventListener("click", ()=>{
-    if(!confirm("¿Borrar toda la data (show + subsnakes)?")) return;
-    appData = { show:{name:"",artist:"",date:""}, snakes:[] };
-    persist();
-    $("showName").value=""; $("artistName").value=""; $("showDate").value="";
-    updateShowBadge(); render();
-  });
-
+  // expose inline
+  window.openEditor = openEditor;
   window.deleteSnake = deleteSnake;
   window.duplicateSnake = duplicateSnake;
-  window.updateSnakeMeta = updateSnakeMeta;
-  window.updateChannel = updateChannel;
-  window.autoDestinations = autoDestinations;
-  window.render = render;
+  window.updCh = updCh;
+  window.updRet = updRet;
 
-  $("showName").value = appData.show.name || "";
-  $("artistName").value = appData.show.artist || "";
-  $("showDate").value = appData.show.date || "";
+  // init
+  normalize();
+  refreshShowInputs();
   updateShowBadge();
-  render();
+  renderList();
 </script>
 </body>
 </html>
