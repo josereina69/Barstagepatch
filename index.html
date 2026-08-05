@@ -198,16 +198,6 @@
       <div><label>Zona</label><input id="snakeZone" placeholder="Tarima Izquierda"></div>
       <div><label>&nbsp;</label><button id="createSnake" class="btn">Crear subsnake</button></div>
     </div>
-
-    <hr style="border-color:var(--line); opacity:.4; margin:10px 0">
-    <div class="grid grid-3">
-      <div><label>Plantilla</label><select id="tplType"><option value="">Selecciona...</option><option value="drums">Batería (12ch)</option><option value="voces">Voces (8ch)</option><option value="metales">Metales (8ch)</option></select></div>
-      <div><label>Nombre plantilla</label><input id="tplName" placeholder="Ej: Voces Principal"></div>
-      <div><label>Zona plantilla</label><input id="tplZone" placeholder="Frente Escenario"></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button id="createFromTemplate">Crear desde plantilla</button>
-    </div>
   </div>
 
   <div class="card no-print">
@@ -420,28 +410,6 @@
       zone: $("snakeZone").value.trim()
     });
     $("snakeName").value = ""; $("snakeZone").value = "";
-  }
-
-  function getTemplate(type){
-    if(type==="drums") return { channelsCount:12, defaultName:"Subsnake Batería", defaultColor:"#f59e0b", sources:["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","SPD-SX","Pad L","Pad R"] };
-    if(type==="voces") return { channelsCount:8, defaultName:"Subsnake Voces", defaultColor:"#22c55e", sources:["Voz Lead","Coro 1","Coro 2","Coro 3","Talkback","Ambiente L","Ambiente R","Spare Voz","Shout","Backline"] };
-    if(type==="metales") return { channelsCount:8, defaultName:"Subsnake Metales", defaultColor:"#a855f7", sources:["Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Spare Metal"] };
-    return null;
-  }
-
-  function createFromTemplate(){
-    const tpl = getTemplate($("tplType").value);
-    if(!tpl) return alert("Selecciona una plantilla.");
-    const channels = tpl.sources.map((src,i)=>({ channel:i+1, source:src, destination:"", micType:"", notes:"" }));
-    createSnakeFromData({
-      name: $("tplName").value.trim() || tpl.defaultName,
-      zone: $("tplZone").value.trim(),
-      channelsCount: tpl.channelsCount,
-      returnsCount: Number($("snakeReturnsCount").value || 0),
-      color: tpl.defaultColor,
-      channels
-    });
-    $("tplName").value = ""; $("tplZone").value = "";
   }
 
   function deleteSnake(id){
@@ -760,7 +728,6 @@
 
   $("saveShowMeta").addEventListener("click", saveShowMeta);
   $("createSnake").addEventListener("click", createSnake);
-  $("createFromTemplate").addEventListener("click", createFromTemplate);
   $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
   $("saveStagepatch").addEventListener("click", exportStagepatch);
   $("importStagepatch").addEventListener("click", importStagepatch);
