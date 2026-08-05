@@ -19,13 +19,14 @@
       margin:0; background:linear-gradient(180deg,#080d1c,#0b1020);
       color:var(--txt); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
     }
-    .app{max-width:980px; margin:0 auto; padding:12px 12px 90px}
+    .app{max-width:1080px; margin:0 auto; padding:12px 12px 90px}
     .card{
       background:rgba(18,26,51,.96); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px;
     }
     h1{margin:0; font-size:1.08rem}
     .sub{margin-top:4px; color:var(--muted); font-size:.86rem}
-    .brand-wrap{display:flex;align-items:center;gap:12px}
+    .brand-wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .brand-left{display:flex;align-items:center;gap:12px}
     .brand-logo{
       width:64px;height:64px;border-radius:12px;border:1px solid #2e3b6b;
       box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover;
@@ -37,6 +38,11 @@
       .brand-title{font-size:1.15rem}
       .brand-sub{font-size:.84rem}
     }
+
+    .top-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .top-actions button{width:auto;padding:10px 12px}
+    .btn-lock{background:#1e293b;border-color:#475569}
+    .btn-lock.active{background:#334155;border-color:#64748b}
 
     label{display:block; font-size:.78rem; color:var(--muted); margin-bottom:5px}
     input,select,button{
@@ -119,11 +125,46 @@
     .k{font-size:.74rem;color:var(--muted)}
     .v{font-size:.92rem}
 
+    /* VISTA LECTURA (tipo hoja de cálculo) */
+    .sheet-wrap{display:none}
+    .sheet-toolbar{
+      display:flex; gap:8px; flex-wrap:wrap; align-items:end; margin-bottom:10px;
+    }
+    .sheet-toolbar .field{min-width:220px; flex:1}
+    .sheet-group{
+      border:1px solid var(--line); border-radius:12px; margin-bottom:12px; overflow:hidden; background:#101831;
+    }
+    .sheet-head{
+      display:flex; align-items:center; gap:8px; padding:10px; background:#162247; border-bottom:1px solid var(--line);
+      font-weight:700;
+    }
+    .sheet-meta{font-weight:400; color:var(--muted); font-size:.86rem}
+    .table-wrap{overflow:auto}
+    .sheet-table{
+      width:100%; border-collapse:collapse; min-width:760px; font-size:.92rem;
+    }
+    .sheet-table th{
+      position:sticky; top:0; z-index:1;
+      background:#1a2547; color:#dfe9ff; text-align:left; padding:8px; border-bottom:1px solid #3e5288;
+    }
+    .sheet-table td{
+      padding:8px; border-bottom:1px solid #2e3b6b; vertical-align:top;
+    }
+    .sheet-table tbody tr:nth-child(odd){background:#0f1936}
+    .sheet-table tbody tr:nth-child(even){background:#111d3f}
+    .mono{font-variant-numeric:tabular-nums}
+    .muted-x{color:#9fb0da}
+
+    .mode-reading .edit-only{display:none !important}
+    .mode-reading .sheet-wrap{display:block}
+    .mode-reading .sticky-bottom{display:none}
+    .mode-edit .read-only-only{display:none !important}
+
     .sticky-bottom{
       position:fixed; left:0; right:0; bottom:0; background:#0b1226;
       border-top:1px solid var(--line); padding:8px; z-index:10;
     }
-    .sticky-wrap{max-width:980px; margin:0 auto; display:flex; gap:8px}
+    .sticky-wrap{max-width:1080px; margin:0 auto; display:flex; gap:8px}
     .sticky-wrap button{flex:1}
 
     .print-only{display:none}
@@ -134,6 +175,7 @@
       body{background:#fff;color:#000;font-size:11px}
       .app{max-width:none;padding:0}
       .card,.snake-item{display:none !important;}
+      .sheet-wrap{display:none !important;}
 
       .print-page{page-break-after:auto;break-after:auto;padding:12mm;}
       .print-snake{
@@ -156,76 +198,102 @@
   </style>
 </head>
 <body>
-<div class="app">
+<div class="app mode-edit" id="appRoot">
   <div class="card no-print">
     <div class="brand-wrap">
-      <img src="icons/icon180.png" alt="StagePatch Pro" class="brand-logo">
-      <div>
-        <h1 class="brand-title">StagePatch Pro</h1>
-        <div class="brand-sub">Organiza tus mangueras de escenario.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="grid grid-3">
-      <div><label>Show / Gira</label><input id="showName" placeholder="Ej: Tour 2026 CDMX"></div>
-      <div><label>Artista</label><input id="artistName" placeholder="Ej: Mi Banda"></div>
-      <div><label>Fecha</label><input id="showDate" type="date"></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button id="saveShowMeta" class="btn-ghost">Guardar show</button>
-      <button id="undoBtn" class="btn-warn no-print">↶ Deshacer</button>
-      <button id="redoBtn" class="btn-warn no-print">↷ Rehacer</button>
-      <button id="printBtn" class="btn-ghost no-print">Imprimir</button>
-    </div>
-    <span class="show-pill" id="showBadge">Show: Sin definir</span>
-    <div id="saveIndicator" class="save-indicator no-print">Backup: pendiente</div>
-  </div>
-
-  <div class="card no-print">
-    <div class="grid grid-3">
-      <div><label>Nombre subsnake</label><input id="snakeName" placeholder="Ej: Subsnake Batería L"></div>
-      <div><label>Entradas</label><select id="snakeChannels"><option>4</option><option>8</option><option selected>12</option><option>16</option><option>24</option></select></div>
-      <div>
-        <label>Salidas (A-H)</label>
-        <select id="snakeReturnsCount">
-          <option value="0">0</option>
-          <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8" selected>8</option>
-        </select>
-      </div>
-      <div><label>Color</label><input id="snakeColor" type="color" value="#4f8cff"></div>
-      <div><label>Zona</label><input id="snakeZone" placeholder="Tarima Izquierda"></div>
-      <div><label>&nbsp;</label><button id="createSnake" class="btn">Crear subsnake</button></div>
-    </div>
-  </div>
-
-  <div class="card no-print">
-    <div class="grid grid-2">
-      <div><label>Buscar</label><input id="search" placeholder="snake, canal, fuente, destino..."></div>
-      <div>
-        <label>Acciones</label>
-        <div class="row">
-          <button id="saveStagepatch" class="btn-ok">Guardar (.stagepatch)</button>
-          <button id="importStagepatch">Importar (.stagepatch)</button>
-          <button id="clearAll" class="btn-danger">Borrar todo</button>
+      <div class="brand-left">
+        <img src="icons/icon180.png" alt="StagePatch Pro" class="brand-logo">
+        <div>
+          <h1 class="brand-title">StagePatch Pro</h1>
+          <div class="brand-sub">Organiza tus mangueras de escenario.</div>
         </div>
       </div>
-    </div>
-    <div class="grid grid-2" style="margin-top:8px">
-      <div><label>Impresión</label><select id="printMode"><option value="all">Todas las mangueras</option><option value="one">Solo una manguera</option></select></div>
-      <div><label>Manguera a imprimir</label><select id="printSnakeSelect"></select></div>
+      <div class="top-actions">
+        <button id="toggleReadMode" class="btn-lock">🔒 Modo lectura</button>
+      </div>
     </div>
   </div>
 
-  <div id="searchResults" class="card no-print" style="display:none">
-    <div class="sub" style="margin-bottom:8px">Resultados del buscador</div>
-    <div id="searchResultsList"></div>
+  <!-- CONTROLES EDICIÓN -->
+  <div class="edit-only">
+    <div class="card">
+      <div class="grid grid-3">
+        <div><label>Show / Gira</label><input id="showName" placeholder="Ej: Tour 2026 CDMX"></div>
+        <div><label>Artista</label><input id="artistName" placeholder="Ej: Mi Banda"></div>
+        <div><label>Fecha</label><input id="showDate" type="date"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="saveShowMeta" class="btn-ghost">Guardar show</button>
+        <button id="undoBtn" class="btn-warn no-print">↶ Deshacer</button>
+        <button id="redoBtn" class="btn-warn no-print">↷ Rehacer</button>
+        <button id="printBtn" class="btn-ghost no-print">Imprimir</button>
+      </div>
+      <span class="show-pill" id="showBadge">Show: Sin definir</span>
+      <div id="saveIndicator" class="save-indicator no-print">Backup: pendiente</div>
+    </div>
+
+    <div class="card no-print">
+      <div class="grid grid-3">
+        <div><label>Nombre subsnake</label><input id="snakeName" placeholder="Ej: Subsnake Batería L"></div>
+        <div><label>Entradas</label><select id="snakeChannels"><option>4</option><option>8</option><option selected>12</option><option>16</option><option>24</option></select></div>
+        <div>
+          <label>Salidas (A-H)</label>
+          <select id="snakeReturnsCount">
+            <option value="0">0</option>
+            <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8" selected>8</option>
+          </select>
+        </div>
+        <div><label>Color</label><input id="snakeColor" type="color" value="#4f8cff"></div>
+        <div><label>Zona</label><input id="snakeZone" placeholder="Tarima Izquierda"></div>
+        <div><label>&nbsp;</label><button id="createSnake" class="btn">Crear subsnake</button></div>
+      </div>
+    </div>
+
+    <div class="card no-print">
+      <div class="grid grid-2">
+        <div><label>Buscar</label><input id="search" placeholder="snake, canal, fuente, destino..."></div>
+        <div>
+          <label>Acciones</label>
+          <div class="row">
+            <button id="saveStagepatch" class="btn-ok">Guardar (.stagepatch)</button>
+            <button id="importStagepatch">Importar (.stagepatch)</button>
+            <button id="clearAll" class="btn-danger">Borrar todo</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-2" style="margin-top:8px">
+        <div><label>Impresión</label><select id="printMode"><option value="all">Todas las mangueras</option><option value="one">Solo una manguera</option></select></div>
+        <div><label>Manguera a imprimir</label><select id="printSnakeSelect"></select></div>
+      </div>
+    </div>
+
+    <div id="searchResults" class="card no-print" style="display:none">
+      <div class="sub" style="margin-bottom:8px">Resultados del buscador</div>
+      <div id="searchResultsList"></div>
+    </div>
+
+    <div class="card">
+      <div class="sub" style="margin-bottom:8px">Subsnakes</div>
+      <div id="snakesList"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <div class="sub" style="margin-bottom:8px">Subsnakes</div>
-    <div id="snakesList"></div>
+  <!-- VISTA LECTURA / HOJA -->
+  <div class="sheet-wrap read-only-only">
+    <div class="card">
+      <div class="sheet-toolbar">
+        <div class="field">
+          <label>Filtro de manguera</label>
+          <select id="sheetSnakeFilter"></select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button id="sheetPrintBtn">Imprimir vista</button>
+        </div>
+      </div>
+      <div id="sheetMeta" class="show-pill">Show: Sin definir</div>
+    </div>
+    <div id="sheetContainer"></div>
   </div>
 
   <div id="printView" class="print-only"></div>
@@ -252,7 +320,7 @@
   </div>
 </div>
 
-<div class="sticky-bottom no-print">
+<div class="sticky-bottom no-print edit-only">
   <div class="sticky-wrap">
     <button id="quickNew" class="btn">+ Nuevo subsnake</button>
     <button id="quickPrint">Imprimir</button>
@@ -270,10 +338,12 @@
   const STAGEPATCH_MIME = "application/x-stagepatch+json";
   const STAGEPATCH_SCHEMA_VERSION = 1;
   const LS_BACKUP_KEY = "stagepatch_backup_v1";
+  const LS_MODE_KEY = "stagepatch_view_mode_v1"; // edit | read
 
   let appData = { show: { name:"", artist:"", date:"" }, snakes: [] };
   let editorSnakeId = null;
   let activeTab = "inputs";
+  let viewMode = "edit";
 
   const HISTORY_LIMIT = 100;
   let undoStack = [];
@@ -286,10 +356,12 @@
   const snakes = () => appData.snakes;
   function clampR(n){ return Math.min(8, Math.max(0, Number(n) || 0)); }
 
+  function isReadMode(){ return viewMode === "read"; }
+
   function setSaveIndicator(txt){ $("saveIndicator").textContent = "Backup: " + txt; }
 
   function snapshot(tag="change"){
-    if(historyMuted) return;
+    if(historyMuted || isReadMode()) return;
     undoStack.push({ tag, state: deepClone(appData) });
     if(undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack = [];
@@ -305,11 +377,14 @@
     renderSearchResults();
     refreshPrintSnakeSelect();
     refreshDatalists();
+    refreshSheetFilter();
+    renderSheetView();
     if(editorSnakeId && !snakes().find(s=>s.id===editorSnakeId)) closeEditor();
     else if(editorSnakeId) renderEditor();
   }
 
   function undo(){
+    if(isReadMode()) return;
     if(!undoStack.length) return;
     const prev = undoStack.pop();
     redoStack.push({ state: deepClone(appData) });
@@ -317,6 +392,7 @@
     updateUndoRedoButtons();
   }
   function redo(){
+    if(isReadMode()) return;
     if(!redoStack.length) return;
     const next = redoStack.pop();
     undoStack.push({ state: deepClone(appData) });
@@ -324,8 +400,8 @@
     updateUndoRedoButtons();
   }
   function updateUndoRedoButtons(){
-    $("undoBtn").disabled = !undoStack.length;
-    $("redoBtn").disabled = !redoStack.length;
+    $("undoBtn").disabled = isReadMode() || !undoStack.length;
+    $("redoBtn").disabled = isReadMode() || !redoStack.length;
   }
 
   function autosaveNow(){
@@ -348,6 +424,38 @@
         }
       }
     }catch{}
+  }
+
+  function loadModePref(){
+    try{
+      const m = localStorage.getItem(LS_MODE_KEY);
+      if(m === "read" || m === "edit") viewMode = m;
+    }catch{}
+    applyModeUI();
+  }
+
+  function toggleMode(){
+    viewMode = (viewMode === "edit") ? "read" : "edit";
+    try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
+    applyModeUI();
+    renderSheetView();
+    if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
+  }
+
+  function applyModeUI(){
+    const root = $("appRoot");
+    root.classList.toggle("mode-reading", viewMode === "read");
+    root.classList.toggle("mode-edit", viewMode === "edit");
+
+    const b = $("toggleReadMode");
+    if(viewMode === "read"){
+      b.classList.add("active");
+      b.textContent = "✏️ Volver a edición";
+    } else {
+      b.classList.remove("active");
+      b.textContent = "🔒 Modo lectura";
+    }
+    updateUndoRedoButtons();
   }
 
   function makeChannels(n){ return Array.from({length:n}, (_,i)=>({ channel:i+1, source:"", destination:"", micType:"", notes:"" })); }
@@ -379,18 +487,22 @@
   function updateShowBadge(){
     const s = appData.show;
     $("showBadge").textContent = "Show: " + `${s.name || "Sin definir"}${s.artist ? " · " + s.artist : ""}${s.date ? " · " + s.date : ""}`;
+    $("sheetMeta").textContent = $("showBadge").textContent;
   }
 
   function saveShowMeta(){
+    if(isReadMode()) return;
     snapshot("show meta");
     appData.show.name = $("showName").value.trim();
     appData.show.artist = $("artistName").value.trim();
     appData.show.date = $("showDate").value;
     updateShowBadge();
+    renderSheetView();
     alert("Show actualizado.");
   }
 
   function createSnakeFromData({name, channelsCount, returnsCount, color, zone, channels, returns}){
+    if(isReadMode()) return;
     snapshot("create snake");
     const chN = Number(channelsCount) || 8, rN = clampR(returnsCount);
     snakes().unshift({
@@ -398,7 +510,7 @@
       channelsCount: chN, returnsCount: rN, color: color || "#4f8cff", zone: zone || "",
       channels: channels || makeChannels(chN), returns: returns || makeReturns(rN), createdAt: new Date().toISOString()
     });
-    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
   function createSnake(){
@@ -409,22 +521,24 @@
       color: $("snakeColor").value,
       zone: $("snakeZone").value.trim()
     });
-    $("snakeName").value = ""; $("snakeZone").value = "";
+    if(!isReadMode()){ $("snakeName").value = ""; $("snakeZone").value = ""; }
   }
 
   function deleteSnake(id){
+    if(isReadMode()) return;
     if(!confirm("¿Eliminar este subsnake?")) return;
     snapshot("delete snake");
     appData.snakes = snakes().filter(s=>s.id!==id);
-    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
   function duplicateSnake(id){
+    if(isReadMode()) return;
     const s = snakes().find(x=>x.id===id); if(!s) return;
     snapshot("duplicate snake");
     const cp = deepClone(s); cp.id = crypto.randomUUID(); cp.name = s.name + " (copia)";
     snakes().unshift(cp);
-    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
   function renderList(){
@@ -460,8 +574,14 @@
     });
   }
 
-  function openEditor(id){ editorSnakeId = id; activeTab = "inputs"; $("tabInputs").classList.add("active"); $("tabOutputs").classList.remove("active"); $("editor").classList.add("open"); renderEditor(); }
-  function openSnakeAndTab(snakeId, tab){ openEditor(snakeId); setTab(tab); }
+  function openEditor(id){
+    if(isReadMode()) return;
+    editorSnakeId = id; activeTab = "inputs";
+    $("tabInputs").classList.add("active"); $("tabOutputs").classList.remove("active");
+    $("editor").classList.add("open");
+    renderEditor();
+  }
+  function openSnakeAndTab(snakeId, tab){ if(isReadMode()) return; openEditor(snakeId); setTab(tab); }
   function closeEditor(){ $("editor").classList.remove("open"); editorSnakeId = null; }
   function setTab(tab){ activeTab = tab; $("tabInputs").classList.toggle("active", tab==="inputs"); $("tabOutputs").classList.toggle("active", tab==="outputs"); renderEditorBody(); }
 
@@ -573,8 +693,8 @@
     }
   }
 
-  function updCh(idx,key,val){ const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return; s.channels[idx][key]=val; renderSearchResults(); }
-  function updRet(idx,key,val){ const s = snakes().find(x=>x.id===editorSnakeId); if(!s || !(s.returns||[])[idx]) return; s.returns[idx][key]=val; renderSearchResults(); }
+  function updCh(idx,key,val){ const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return; s.channels[idx][key]=val; renderSearchResults(); renderSheetView(); }
+  function updRet(idx,key,val){ const s = snakes().find(x=>x.id===editorSnakeId); if(!s || !(s.returns||[])[idx]) return; s.returns[idx][key]=val; renderSearchResults(); renderSheetView(); }
 
   function applyEditorMeta(){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
@@ -582,7 +702,7 @@
     s.name = $("edName").value.trim() || s.name;
     s.zone = $("edZone").value.trim();
     s.color = $("edColor").value;
-    renderList(); renderSearchResults(); refreshPrintSnakeSelect();
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshSheetFilter(); renderSheetView();
   }
 
   function autoDestinationsCurrent(){
@@ -596,7 +716,7 @@
 
     const count = end - start + 1;
     s.channels.forEach((c, i)=>{ c.destination = i < count ? `${base} - Input ${String(start + i).padStart(2,"0")}` : ""; });
-    renderEditorBody(); renderSearchResults();
+    renderEditorBody(); renderSearchResults(); renderSheetView();
     alert(`Auto destino aplicado de ${start} a ${end}. El resto quedó vacío.`);
   }
 
@@ -605,6 +725,7 @@
   }
 
   function exportStagepatch(){
+    if(isReadMode()) return;
     const blob = new Blob([JSON.stringify(buildPortableStagepatchObject(), null, 2)], { type: STAGEPATCH_MIME });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -613,6 +734,7 @@
   }
 
   function importStagepatch(){
+    if(isReadMode()) return;
     const i = document.createElement("input");
     i.type = "file";
     i.accept = `${STAGEPATCH_EXT},${STAGEPATCH_MIME},application/json`;
@@ -626,7 +748,7 @@
         } else if (data && Array.isArray(data.snakes)) {
           appData = { show: data.show || {name:"",artist:"",date:""}, snakes: data.snakes || [] };
         } else throw new Error("Archivo no válido de StagePatch.");
-        normalize(); refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists();
+        normalize(); refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
         alert("Archivo importado correctamente.");
       }catch(e){ alert("Error importando .stagepatch: " + e.message); }
     };
@@ -634,10 +756,11 @@
   }
 
   function clearAll(){
+    if(isReadMode()) return;
     if(!confirm("¿Borrar toda la data?")) return;
     snapshot("clear all");
     appData = { show:{name:"",artist:"",date:""}, snakes:[] };
-    refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists();
+    refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
   function refreshShowInputs(){ $("showName").value = appData.show.name || ""; $("artistName").value = appData.show.artist || ""; $("showDate").value = appData.show.date || ""; }
@@ -726,6 +849,88 @@
 
   function doPrint(){ buildPrintView(); window.print(); }
 
+  /* ======= SHEET VIEW ======= */
+  function refreshSheetFilter(){
+    const sel = $("sheetSnakeFilter");
+    const cur = sel.value || "all";
+    sel.innerHTML = `<option value="all">Todas las mangueras</option>` + snakes().map(s=>`<option value="${s.id}">${esc(s.name)}${s.zone ? " · " + esc(s.zone) : ""}</option>`).join("");
+    if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  }
+
+  function getSheetSnakes(){
+    const v = $("sheetSnakeFilter").value || "all";
+    return v === "all" ? snakes() : snakes().filter(s=>s.id===v);
+  }
+
+  function renderSheetView(){
+    const wrap = $("sheetContainer");
+    const list = getSheetSnakes();
+
+    if(!list.length){
+      wrap.innerHTML = `<div class="card"><div class="small">No hay mangueras para mostrar.</div></div>`;
+      return;
+    }
+
+    wrap.innerHTML = list.map(s=>`
+      <div class="sheet-group">
+        <div class="sheet-head">
+          <span class="dot" style="background:${s.color}"></span>
+          <span>${esc(s.name)}</span>
+          <span class="sheet-meta">· ${esc(s.zone || "Sin zona")} · ${s.channelsCount} entradas / ${s.returnsCount} salidas</span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="sheet-table">
+            <thead>
+              <tr>
+                <th style="width:80px">CH</th>
+                <th>Fuente</th>
+                <th>Destino</th>
+                <th>Mic/DI</th>
+                <th>Notas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(s.channels || []).map(c=>`
+                <tr>
+                  <td class="mono"><strong>CH ${esc(c.channel)}</strong></td>
+                  <td>${esc(c.source || "—")}</td>
+                  <td>${esc(c.destination || "—")}</td>
+                  <td>${esc(c.micType || "—")}</td>
+                  <td class="muted-x">${esc(c.notes || "—")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+
+        ${(s.returns || []).length ? `
+        <div class="table-wrap">
+          <table class="sheet-table">
+            <thead>
+              <tr>
+                <th style="width:80px">OUT</th>
+                <th>Fuente</th>
+                <th>Destino</th>
+                <th>Notas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(s.returns || []).map(r=>`
+                <tr>
+                  <td class="mono"><strong>${esc(r.label || "")}</strong></td>
+                  <td>${esc(r.source || "—")}</td>
+                  <td>${esc(r.destination || "—")}</td>
+                  <td class="muted-x">${esc(r.notes || "—")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>` : ""}
+      </div>
+    `).join("");
+  }
+
   $("saveShowMeta").addEventListener("click", saveShowMeta);
   $("createSnake").addEventListener("click", createSnake);
   $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
@@ -739,6 +944,10 @@
   $("quickPrint").addEventListener("click", doPrint);
   $("undoBtn").addEventListener("click", undo);
   $("redoBtn").addEventListener("click", redo);
+  $("toggleReadMode").addEventListener("click", toggleMode);
+
+  $("sheetSnakeFilter").addEventListener("change", renderSheetView);
+  $("sheetPrintBtn").addEventListener("click", doPrint);
 
   document.addEventListener("keydown", e=>{
     const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
@@ -770,6 +979,9 @@
   renderSearchResults();
   refreshPrintSnakeSelect();
   refreshDatalists();
+  refreshSheetFilter();
+  renderSheetView();
+  loadModePref();
   buildPrintView();
   updateUndoRedoButtons();
 
