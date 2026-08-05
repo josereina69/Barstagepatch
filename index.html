@@ -423,8 +423,8 @@
   }
 
   function getTemplate(type){
-    if(type==="drums") return { channelsCount:12, defaultName:"Subsnake Batería", defaultColor:"#f59e0b", sources:["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","SPD-SX"] };
-    if(type==="voces") return { channelsCount:8, defaultName:"Subsnake Voces", defaultColor:"#22c55e", sources:["Voz Lead","Coro 1","Coro 2","Coro 3","Talkback","Ambiente L","Ambiente R","Spare Voz"] };
+    if(type==="drums") return { channelsCount:12, defaultName:"Subsnake Batería", defaultColor:"#f59e0b", sources:["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","SPD-SX","Pad L","Pad R"] };
+    if(type==="voces") return { channelsCount:8, defaultName:"Subsnake Voces", defaultColor:"#22c55e", sources:["Voz Lead","Coro 1","Coro 2","Coro 3","Talkback","Ambiente L","Ambiente R","Spare Voz","Shout","Backline"] };
     if(type==="metales") return { channelsCount:8, defaultName:"Subsnake Metales", defaultColor:"#a855f7", sources:["Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Spare Metal"] };
     return null;
   }
@@ -499,15 +499,15 @@
 
   function getSuggestions(){
     const baseSource = [
-      "Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Tom 3","Floor Tom",
-      "OH L","OH R","Ride","Crash L","Crash R","Perc L","Perc R","SPD-SX","Sample L","Sample R","Click",
-      "Bass DI","Bass Mic","Bass FX","Gtr L","Gtr R","Gtr Acústica DI","Gtr Acústica Mic","Gtr Eléctrica SM57","Gtr Eléctrica e906",
-      "Ukelele DI","Mandolina DI","Violín DI","Cello DI",
-      "Keys L","Keys R","Piano L","Piano R","Synth 1 L","Synth 1 R","Synth 2 L","Synth 2 R",
+      "Kick In","Kick Out","Snare Top","Snare Bottom","Snare 2","Snare 3","Hi-Hat","Tom 1","Tom 2","Tom 3","Tom 4","Floor Tom",
+      "OH L","OH R","Ride","Crash L","Crash R","Pad L","Pad R","SPD-SX","Sample L","Sample R","Click",
+      "Bass DI","Bass Mic","Bass FX","Gtr L","Gtr R","Gtr Acústica DI","Gtr Acústica Mic","Guitarra Flamenca","Gtr Eléctrica SM57","Gtr Eléctrica e906","Gtr Eléctrica Xlr",
+      "Ukelele DI","Mandolina DI","Violín DI","Cello DI","Melodica",
+      "Keys L","Keys R","Piano L","Piano R","Key 2 L","Key 2 R","Piano 2 L","Piano 2 R","Synth 1 L","Synth 1 R","Synth 2 L","Synth 2 R",
       "Tracks L","Tracks R","Playback L","Playback R","Ableton L","Ableton R","Sampler L","Sampler R",
-      "Voz Lead","Voz Lead 2","Coro 1","Coro 2","Coro 3","Coro 4","Talkback FOH","Talkback MON","MC","Narrador",
+      "Voz Lead","Voz Lead 2","Coro 1","Coro 2","Coro 3","Coro 4","Talkback FOH","Talkback MON","MC","Narrador","Shout","Backline",
       "Ambiente L","Ambiente R","Audience L","Audience R","Room L","Room R",
-      "Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Clarinete","Flauta","Oboe",
+      "Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Clarinete","Flauta","Oboe","Acordeon",
       "DJ L","DJ R","Laptop L","Laptop R","Video L","Video R","Spare 1","Spare 2","Spare 3","Spare 4"
     ];
 
