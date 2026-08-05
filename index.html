@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StagePatch Pro — Gestor de Subsnakes y Patch de Escenario</title>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#11172b; --panel2:#1a223d; --line:#2d3a66;
+      --txt:#e8eeff; --muted:#9fb0df; --accent:#4f8cff; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:linear-gradient(180deg,#080c18,#0b1020); color:var(--txt);
+      font-family:Inter,system-ui,Segoe UI,Roboto,Arial; padding:14px;
+    }
+    .wrap{max-width:1200px; margin:0 auto; display:grid; gap:12px}
+    .card{background:rgba(17,23,43,.96); border:1px solid var(--line); border-radius:14px; padding:12px}
+    h1{margin:0 0 4px; font-size:1.12rem}
+    .sub{color:var(--muted); font-size:.88rem}
+    .grid{display:grid; gap:8px; grid-template-columns:repeat(12,1fr)}
+    .col-2{grid-column:span 2}.col-3{grid-column:span 3}.col-4{grid-column:span 4}
+    .col-6{grid-column:span 6}.col-8{grid-column:span 8}.col-12{grid-column:span 12}
+    @media(max-width:900px){.col-2,.col-3,.col-4,.col-6,.col-8{grid-column:span 12}}
+
+    label{font-size:.78rem; color:var(--muted); display:block; margin-bottom:5px}
+    input,select,textarea,button{
+      width:100%; background:var(--panel2); color:var(--txt);
+      border:1px solid var(--line); border-radius:10px; padding:9px; font-size:.92rem;
+    }
+    textarea{min-height:40px; resize:vertical}
+    button{cursor:pointer}
+    .row{display:flex; gap:8px; flex-wrap:wrap}
+    .row button{width:auto}
+    .btn{background:var(--accent); border-color:#6ea1ff}
+    .btn-danger{background:#3b1117; border-color:#7f1d1d}
+    .btn-ghost{background:transparent}
+
+    .snake{border:1px solid var(--line); border-radius:12px; overflow:hidden}
+    .snake-head{
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      padding:10px; background:#0f1630; border-bottom:1px solid var(--line);
+      flex-wrap:wrap;
+    }
+    .snake-title{display:flex; align-items:center; gap:10px; min-width:0}
+    .dot{width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.35)}
+    .snake-name{font-weight:700}
+    .meta{font-size:.82rem; color:var(--muted)}
+    .snake-body{padding:10px}
+    .small{font-size:.8rem; color:var(--muted)}
+
+    .desktop-table{display:block; overflow:auto}
+    table{width:100%; border-collapse:collapse; min-width:900px}
+    th,td{border:1px solid var(--line); padding:7px; text-align:left; vertical-align:top}
+    th{background:#111a37}
+    .chan{font-weight:700; width:70px}
+
+    .mobile-list{display:none; gap:8px}
+    .ch-card{
+      border:1px solid var(--line); border-radius:10px; padding:8px; background:#0f1630;
+      display:grid; gap:6px;
+    }
+    .ch-title{font-weight:700; font-size:.9rem}
+
+    .show-badge{
+      display:inline-block; margin-top:6px; font-size:.82rem; color:#dbe6ff;
+      background:#1b2957; border:1px solid #3656b1; border-radius:999px; padding:4px 10px;
+    }
+
+    @media(max-width:760px){
+      .desktop-table{display:none}
+      .mobile-list{display:grid}
+      body{padding:10px}
+      .card{padding:10px}
+      input,select,textarea,button{font-size:16px;}
+      .row button{width:100%}
+    }
+
+    @media print{
+      body{background:#fff; color:#000; padding:0}
+      .no-print{display:none !important}
+      .card,.snake{border:1px solid #999; background:#fff; color:#000}
+      input,select,textarea{border:0; background:transparent; color:#000; padding:0}
+      .dot{border-color:#000}
+      .desktop-table{display:block !important}
+      .mobile-list{display:none !important}
+      .snake{page-break-inside:avoid; margin-bottom:10px}
+      .show-badge{background:#fff; color:#000; border-color:#000}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card no-print">
+    <h1>StagePatch Pro</h1>
+    <div class="sub">Gestión profesional de subsnakes, patch list y ruteo de escenario.</div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="col-4">
+        <label>Nombre del show / gira</label>
+        <input id="showName" placeholder="Ej: Tour 2026 - Ciudad de México" />
+      </div>
+      <div class="col-3">
+        <label>Artista / Banda</label>
+        <input id="artistName" placeholder="Ej: Mi Banda" />
+      </div>
+      <div class="col-3">
+        <label>Fecha</label>
+        <input id="showDate" type="date" />
+      </div>
+      <div class="col-2">
+        <label>&nbsp;</label>
+        <button id="saveShowMeta" class="btn-ghost">Guardar show</button>
+      </div>
+      <div class="col-12">
+        <span class="show-badge" id="showBadge">Show: Sin definir</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <div class="grid">
+      <div class="col-3">
+        <label>Nombre del subsnake</label>
+        <input id="snakeName" placeholder="Ej: Subsnake Batería L" />
+      </div>
+      <div class="col-2">
+        <label>Canales</label>
+        <select id="snakeChannels">
+          <option>4</option><option>8</option><option selected>12</option><option>16</option><option>24</option>
+        </select>
+      </div>
+      <div class="col-2">
+        <label>Color</label>
+        <input id="snakeColor" type="color" value="#4f8cff" />
+      </div>
+      <div class="col-3">
+        <label>Zona</label>
+        <input id="snakeZone" placeholder="Ej: Tarima Izquierda" />
+      </div>
+      <div class="col-2">
+        <label>&nbsp;</label>
+        <button class="btn" id="createSnake">Crear subsnake</button>
+      </div>
+    </div>
+
+    <hr style="border-color:var(--line); opacity:.4; margin:10px 0">
+
+    <div class="grid">
+      <div class="col-3">
+        <label>Plantillas rápidas</label>
+        <select id="tplType">
+          <option value="">Selecciona plantilla...</option>
+          <option value="drums">Batería (12ch)</option>
+          <option value="voces">Voces (8ch)</option>
+          <option value="metales">Metales (8ch)</option>
+        </select>
+      </div>
+      <div class="col-3">
+        <label>Nombre plantilla</label>
+        <input id="tplName" placeholder="Ej: Voces Principal" />
+      </div>
+      <div class="col-3">
+        <label>Zona plantilla</label>
+        <input id="tplZone" placeholder="Ej: Frente Escenario" />
+      </div>
+      <div class="col-3">
+        <label>&nbsp;</label>
+        <button id="createFromTemplate">Crear desde plantilla</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <div class="grid">
+      <div class="col-4">
+        <label>Buscar</label>
+        <input id="search" placeholder="Nombre, zona, canal, fuente, destino..." />
+      </div>
+      <div class="col-8">
+        <label>&nbsp;</label>
+        <div class="row">
+          <button class="btn-ghost" id="saveLocalBtn">Guardar local</button>
+          <button class="btn-ghost" id="loadLocalBtn">Cargar local</button>
+          <button class="btn-ghost" id="exportJson">Exportar JSON</button>
+          <button class="btn-ghost" id="importJson">Importar JSON</button>
+          <button class="btn-ghost" id="printBtn">Imprimir patch list</button>
+          <button class="btn-danger" id="clearAll">Borrar todo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="snakesContainer"></div>
+</div>
+
+<script>
+  const LS_KEY = "subsnakes_planner_v4";
+  let appData = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
+    show: { name:"", artist:"", date:"" },
+    snakes: []
+  };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+
+  function persist(){ localStorage.setItem(LS_KEY, JSON.stringify(appData)); }
+  function snakes(){ return appData.snakes; }
+
+  function saveLocalNow(){
+    persist();
+    alert("Proyecto guardado localmente.");
+  }
+
+  function loadLocalNow(){
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw){
+      alert("No hay proyecto guardado localmente.");
+      return;
+    }
+    try{
+      const data = JSON.parse(raw);
+      if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
+      appData = {
+        show: data.show || {name:"",artist:"",date:""},
+        snakes: data.snakes || []
+      };
+      $("showName").value = appData.show.name || "";
+      $("artistName").value = appData.show.artist || "";
+      $("showDate").value = appData.show.date || "";
+      updateShowBadge();
+      render();
+      alert("Proyecto cargado localmente.");
+    }catch(e){
+      alert("Error al cargar guardado local: " + e.message);
+    }
+  }
+
+  function updateShowBadge(){
+    const s = appData.show;
+    const name = s.name || "Sin definir";
+    const artist = s.artist ? ` · ${s.artist}` : "";
+    const date = s.date ? ` · ${s.date}` : "";
+    $("showBadge").textContent = `Show: ${name}${artist}${date}`;
+    document.title = s.name ? `StagePatch Pro — ${s.name}` : "StagePatch Pro — Gestor de Subsnakes y Patch de Escenario";
+  }
+
+  function saveShowMeta(){
+    appData.show.name = $("showName").value.trim();
+    appData.show.artist = $("artistName").value.trim();
+    appData.show.date = $("showDate").value;
+    persist();
+    updateShowBadge();
+    alert("Datos de show/gira guardados.");
+  }
+
+  function makeChannels(n){
+    return Array.from({length:n}, (_,i)=>({ channel:i+1, source:"", destination:"", micType:"", notes:"" }));
+  }
+
+  function createSnakeFromData({name, channelsCount, color, zone, channels}){
+    snakes().unshift({
+      id: crypto.randomUUID(),
+      name: name || `Subsnake ${snakes().length+1}`,
+      channelsCount,
+      color: color || "#4f8cff",
+      zone: zone || "",
+      channels: channels || makeChannels(channelsCount),
+      createdAt: new Date().toISOString()
+    });
+    persist(); render();
+  }
+
+  function createSnake(){
+    createSnakeFromData({
+      name: $("snakeName").value.trim(),
+      channelsCount: Number($("snakeChannels").value),
+      color: $("snakeColor").value,
+      zone: $("snakeZone").value.trim()
+    });
+    $("snakeName").value=""; $("snakeZone").value="";
+  }
+
+  function getTemplate(type){
+    if(type==="drums"){
+      return {
+        channelsCount:12, defaultName:"Subsnake Batería", defaultColor:"#f59e0b",
+        sources:["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","SPD-SX"]
+      };
+    }
+    if(type==="voces"){
+      return {
+        channelsCount:8, defaultName:"Subsnake Voces", defaultColor:"#22c55e",
+        sources:["Voz Lead","Coro 1","Coro 2","Coro 3","Talkback","Ambiente L","Ambiente R","Spare Voz"]
+      };
+    }
+    if(type==="metales"){
+      return {
+        channelsCount:8, defaultName:"Subsnake Metales", defaultColor:"#a855f7",
+        sources:["Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Spare Metal"]
+      };
+    }
+    return null;
+  }
+
+  function createFromTemplate(){
+    const type = $("tplType").value;
+    const tpl = getTemplate(type);
+    if(!tpl){ alert("Selecciona una plantilla."); return; }
+    const name = $("tplName").value.trim() || tpl.defaultName;
+    const zone = $("tplZone").value.trim();
+    const channels = tpl.sources.map((s,i)=>({ channel:i+1, source:s, destination:"", micType:"", notes:"" }));
+    createSnakeFromData({ name, zone, channelsCount:tpl.channelsCount, color:tpl.defaultColor, channels });
+    $("tplName").value=""; $("tplZone").value="";
+  }
+
+  function deleteSnake(id){
+    if(!confirm("¿Eliminar este subsnake?")) return;
+    appData.snakes = snakes().filter(s=>s.id!==id);
+    persist(); render();
+  }
+
+  function updateSnakeMeta(id,key,val){
+    const s = snakes().find(x=>x.id===id); if(!s) return;
+    s[key]=val; persist();
+  }
+
+  function updateChannel(id, idx, key, val){
+    const s = snakes().find(x=>x.id===id); if(!s) return;
+    s.channels[idx][key]=val; persist();
+  }
+
+  function autoDestinations(id){
+    const s = snakes().find(x=>x.id===id); if(!s) return;
+    const rack = prompt("Nombre base de destino:", "Rack A");
+    if(rack===null) return;
+    const start = Number(prompt("Empezar en input #:", "1"));
+    if(Number.isNaN(start) || start<1) return alert("Número inválido.");
+    s.channels.forEach((c,i)=> c.destination = `${rack} - Input ${String(start+i).padStart(2,"0")}`);
+    persist(); render();
+  }
+
+  function duplicateSnake(id){
+    const s = snakes().find(x=>x.id===id); if(!s) return;
+    const cp = JSON.parse(JSON.stringify(s));
+    cp.id = crypto.randomUUID();
+    cp.name = s.name + " (copia)";
+    snakes().unshift(cp); persist(); render();
+  }
+
+  function render(){
+    const q = $("search").value.trim().toLowerCase();
+    const box = $("snakesContainer");
+    box.innerHTML = "";
+
+    const filtered = snakes().filter(s=>{
+      if(!q) return true;
+      const hay = [s.name,s.zone,s.channelsCount,...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes])]
+        .join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+
+    filtered.forEach(s=>{
+      const el = document.createElement("div");
+      el.className = "card snake";
+      el.innerHTML = `
+        <div class="snake-head">
+          <div class="snake-title">
+            <span class="dot" style="background:${s.color}"></span>
+            <div>
+              <div class="snake-name">${esc(s.name)}</div>
+              <div class="meta">${s.channelsCount} canales ${s.zone ? "• " + esc(s.zone) : ""}</div>
+            </div>
+          </div>
+          <div class="row no-print">
+            <button onclick="autoDestinations('${s.id}')">Auto destino 01..NN</button>
+            <button onclick="duplicateSnake('${s.id}')">Duplicar</button>
+            <button class="btn-danger" onclick="deleteSnake('${s.id}')">Eliminar</button>
+          </div>
+        </div>
+
+        <div class="snake-body">
+          <div class="grid no-print" style="margin-bottom:10px">
+            <div class="col-4"><label>Nombre</label><input value="${esc(s.name)}" oninput="updateSnakeMeta('${s.id}','name',this.value)" /></div>
+            <div class="col-3"><label>Zona</label><input value="${esc(s.zone||"")}" oninput="updateSnakeMeta('${s.id}','zone',this.value)" /></div>
+            <div class="col-2"><label>Color</label><input type="color" value="${s.color}" oninput="updateSnakeMeta('${s.id}','color',this.value); render();" /></div>
+            <div class="col-3 small" style="display:flex;align-items:end">Edita el patch por canal.</div>
+          </div>
+
+          <div class="desktop-table">
+            <table>
+              <thead><tr><th class="chan">Canal</th><th>Fuente</th><th>Destino</th><th>Mic/DI</th><th>Notas</th></tr></thead>
+              <tbody>
+                ${s.channels.map((c,idx)=>`
+                  <tr>
+                    <td class="chan">CH ${c.channel}</td>
+                    <td><input value="${esc(c.source)}" oninput="updateChannel('${s.id}',${idx},'source',this.value)" /></td>
+                    <td><input value="${esc(c.destination)}" oninput="updateChannel('${s.id}',${idx},'destination',this.value)" /></td>
+                    <td><input value="${esc(c.micType)}" oninput="updateChannel('${s.id}',${idx},'micType',this.value)" /></td>
+                    <td><input value="${esc(c.notes)}" oninput="updateChannel('${s.id}',${idx},'notes',this.value)" /></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mobile-list">
+            ${s.channels.map((c,idx)=>`
+              <div class="ch-card">
+                <div class="ch-title">CH ${c.channel}</div>
+                <div><label>Fuente</label><input value="${esc(c.source)}" oninput="updateChannel('${s.id}',${idx},'source',this.value)" /></div>
+                <div><label>Destino</label><input value="${esc(c.destination)}" oninput="updateChannel('${s.id}',${idx},'destination',this.value)" /></div>
+                <div><label>Mic/DI</label><input value="${esc(c.micType)}" oninput="updateChannel('${s.id}',${idx},'micType',this.value)" /></div>
+                <div><label>Notas</label><input value="${esc(c.notes)}" oninput="updateChannel('${s.id}',${idx},'notes',this.value)" /></div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+      box.appendChild(el);
+    });
+  }
+
+  // eventos
+  $("saveShowMeta").addEventListener("click", saveShowMeta);
+  $("createSnake").addEventListener("click", createSnake);
+  $("createFromTemplate").addEventListener("click", createFromTemplate);
+  $("search").addEventListener("input", render);
+
+  $("saveLocalBtn").addEventListener("click", saveLocalNow);
+  $("loadLocalBtn").addEventListener("click", loadLocalNow);
+
+  $("printBtn").addEventListener("click", ()=>window.print());
+
+  $("exportJson").addEventListener("click", ()=>{
+    const blob = new Blob([JSON.stringify(appData,null,2)],{type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const showSafe = (appData.show.name || "show").replace(/[^\w\-]+/g,"_");
+    a.download = `patch_${showSafe}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+
+  $("importJson").addEventListener("click", ()=>{
+    const i=document.createElement("input"); i.type="file"; i.accept="application/json";
+    i.onchange=async()=>{
+      const f=i.files?.[0]; if(!f) return;
+      try{
+        const data=JSON.parse(await f.text());
+        if(!data || !Array.isArray(data.snakes)) throw new Error("Formato inválido");
+        appData = {
+          show: data.show || {name:"",artist:"",date:""},
+          snakes: data.snakes
+        };
+        persist();
+        $("showName").value = appData.show.name || "";
+        $("artistName").value = appData.show.artist || "";
+        $("showDate").value = appData.show.date || "";
+        updateShowBadge();
+        render();
+      }catch(e){ alert("Error importando: "+e.message); }
+    };
+    i.click();
+  });
+
+  $("clearAll").addEventListener("click", ()=>{
+    if(!confirm("¿Borrar toda la data (show + subsnakes)?")) return;
+    appData = { show:{name:"",artist:"",date:""}, snakes:[] };
+    persist();
+    $("showName").value=""; $("artistName").value=""; $("showDate").value="";
+    updateShowBadge(); render();
+  });
+
+  window.deleteSnake = deleteSnake;
+  window.duplicateSnake = duplicateSnake;
+  window.updateSnakeMeta = updateSnakeMeta;
+  window.updateChannel = updateChannel;
+  window.autoDestinations = autoDestinations;
+  window.render = render;
+
+  $("showName").value = appData.show.name || "";
+  $("artistName").value = appData.show.artist || "";
+  $("showDate").value = appData.show.date || "";
+  updateShowBadge();
+  render();
+</script>
+</body>
+</html>
