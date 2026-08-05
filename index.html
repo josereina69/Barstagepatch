@@ -498,16 +498,58 @@
   function setTab(tab){ activeTab = tab; $("tabInputs").classList.toggle("active", tab==="inputs"); $("tabOutputs").classList.toggle("active", tab==="outputs"); renderEditorBody(); }
 
   function getSuggestions(){
-    const baseSource = ["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Floor Tom","OH L","OH R","Ride","Bass DI","Gtr L","Gtr R","Keys L","Keys R","Voz Lead","Coro 1","Coro 2","Talkback"];
-    const baseDest = ["Rack A - Input 01","Rack A - Input 02","Rack A - Input 03","IEM L","IEM R","SideFill L","SideFill R","PA L","PA R"];
-    const baseMic = ["SM58","SM57","Beta52","e904","e906","DI Activa","DI Pasiva","Condenser"];
-    const baseNotes = ["Phantom ON","Phantom OFF","Pad -20dB","HPF ON","Revisar fase"];
+    const baseSource = [
+      "Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","Tom 3","Floor Tom",
+      "OH L","OH R","Ride","Crash L","Crash R","Perc L","Perc R","SPD-SX","Sample L","Sample R","Click",
+      "Bass DI","Bass Mic","Bass FX","Gtr L","Gtr R","Gtr Acústica DI","Gtr Acústica Mic","Gtr Eléctrica SM57","Gtr Eléctrica e906",
+      "Ukelele DI","Mandolina DI","Violín DI","Cello DI",
+      "Keys L","Keys R","Piano L","Piano R","Synth 1 L","Synth 1 R","Synth 2 L","Synth 2 R",
+      "Tracks L","Tracks R","Playback L","Playback R","Ableton L","Ableton R","Sampler L","Sampler R",
+      "Voz Lead","Voz Lead 2","Coro 1","Coro 2","Coro 3","Coro 4","Talkback FOH","Talkback MON","MC","Narrador",
+      "Ambiente L","Ambiente R","Audience L","Audience R","Room L","Room R",
+      "Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Clarinete","Flauta","Oboe",
+      "DJ L","DJ R","Laptop L","Laptop R","Video L","Video R","Spare 1","Spare 2","Spare 3","Spare 4"
+    ];
+
+    const baseDest = [
+      "Rack A - Input 01","Rack A - Input 02","Rack A - Input 03","Rack A - Input 04",
+      "Rack A - Input 05","Rack A - Input 06","Rack A - Input 07","Rack A - Input 08",
+      "Rack A - Input 09","Rack A - Input 10","Rack A - Input 11","Rack A - Input 12",
+      "Rack B - Input 01","Rack B - Input 02","Rack B - Input 03","Rack B - Input 04",
+      "Rack B - Input 05","Rack B - Input 06","Rack B - Input 07","Rack B - Input 08",
+      "FOH CH 01","FOH CH 02","FOH CH 03","FOH CH 04","FOH CH 05","FOH CH 06",
+      "MON CH 01","MON CH 02","MON CH 03","MON CH 04","MON CH 05","MON CH 06",
+      "IEM Lead L","IEM Lead R","IEM Coros L","IEM Coros R","IEM Batería L","IEM Batería R",
+      "Wedge 1","Wedge 2","Wedge 3","Wedge 4","Drum Fill","SideFill L","SideFill R",
+      "PA L","PA R","Sub Mono","FrontFill","Delay L","Delay R",
+      "Matrix 1","Matrix 2","Matrix 3","Matrix 4","Broadcast L","Broadcast R","Recording L","Recording R"
+    ];
+
+    const baseMic = [
+      "SM58","SM57","Beta58A","Beta57A","e835","e935","e945","MD421","RE20","M88",
+      "Beta52","D112","e902","e904","e905","e906","e609",
+      "C214","C414","KSM32","NT5","KM184","P170","P420",
+      "R121","M160",
+      "DI Activa","DI Pasiva","Radial J48","Radial ProDI","BSS AR-133","Wireless HH","Wireless Beltpack","Line In"
+    ];
+
+    const baseNotes = [
+      "Phantom ON","Phantom OFF","Pad -10dB","Pad -20dB","HPF ON","HPF OFF",
+      "Invertir fase","Revisar polaridad","Gate suave","Comp ligera","Sin compresión",
+      "Sin EQ","EQ correctiva","No enviar a PA","Solo monitores","Solo grabación",
+      "Canal de respaldo","Canal compartido","Checar clip","Ganancia baja","Ganancia media","Ganancia alta",
+      "Atento feedback","Micrófono inalámbrico","Requiere soporte","Cable corto","Cable largo",
+      "Mute al inicio","Abrir en canción 2","Abrir en canción 5","Talkback solo MON"
+    ];
+
     const src = new Set(baseSource), dst = new Set(baseDest), mic = new Set(baseMic), nts = new Set(baseNotes);
+
     snakes().forEach(s=>{
       (s.channels||[]).forEach(c=>{ if(c.source) src.add(c.source); if(c.destination) dst.add(c.destination); if(c.micType) mic.add(c.micType); if(c.notes) nts.add(c.notes); });
       (s.returns||[]).forEach(r=>{ if(r.source) src.add(r.source); if(r.destination) dst.add(r.destination); if(r.notes) nts.add(r.notes); });
     });
-    return { source:[...src].slice(0,300), destination:[...dst].slice(0,300), mic:[...mic].slice(0,300), notes:[...nts].slice(0,300) };
+
+    return { source:[...src].slice(0,1000), destination:[...dst].slice(0,1000), mic:[...mic].slice(0,1000), notes:[...nts].slice(0,1000) };
   }
 
   function fillDatalist(id, values){ $(id).innerHTML = values.map(v=>`<option value="${esc(v)}"></option>`).join(""); }
