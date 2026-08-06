@@ -1390,33 +1390,21 @@ async function saveStagepatchFile(){
     i.click();
   }
 
-  async function openRiderViewer() {
-  try {
-    const item = await idbGet("riderPDF");
-    if (!item) return alert("No hay Rider cargado.");
-
-    const source = item.data ?? item.blob ?? item.file ?? item;
-    const blob = source instanceof Blob ? source : new Blob([source], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.click();
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
+  async function openRiderViewer(){
+    try{
+      const b = await riderGet();
+      if(!b){
+        alert("No hay Rider cargado. Pulsa 'Cargar Rider PDF'.");
+        return;
+      }
+      if(riderObjectURL) URL.revokeObjectURL(riderObjectURL);
+      riderObjectURL = URL.createObjectURL(b);
+      $("riderFrame").src = riderObjectURL;
+      $("riderModal").classList.add("open");
+    }catch(e){
+      alert("No se pudo abrir el Rider: " + (e?.message || e));
     }
-
-    setTimeout(() => URL.revokeObjectURL(url), 20000);
-  } catch (e) {
-    console.error(e);
-    alert("Error al abrir el Rider PDF.");
   }
-}
 
   function closeRiderViewer(){
     $("riderModal").classList.remove("open");
