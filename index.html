@@ -788,18 +788,234 @@
   function setTab(tab){ activeTab = tab; $("tabInputs").classList.toggle("active", tab==="inputs"); $("tabOutputs").classList.toggle("active", tab==="outputs"); renderEditorBody(); }
 
   function getSuggestions(){
-    const baseSource = ["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","OH L","OH R","Bass DI","Gtr L","Gtr R","Keys L","Keys R","Tracks L","Tracks R","Voz Lead","Coro 1","Talkback MON"];
-    const baseDest = ["Rack A - Input 01","Rack A - Input 02","Rack B - Input 01","FOH CH 01","MON CH 01","IEM Lead L","PA L","PA R","Matrix 1","Recording L"];
-    const baseMic = ["SM58","SM57","Beta58A","MD421","RE20","D112","C414","DI Activa","DI Pasiva","Wireless HH"];
-    const baseNotes = ["Phantom ON","Pad -10dB","HPF ON","Invertir fase","Canal de respaldo","Checar clip","Mute al inicio"];
+  const baseSource = [
+    // ===== VOCES =====
+    "Voz principal","Voz lead","Voz secundaria","Coro 1","Coro 2","Coro 3","Coro 4","Coro 5","Coro 6",
+    "Rap lead","Rap coro","Locución","Narrador","Presentador","MC","Animación",
+    "Talkback FOH","Talkback MON","Talkback Stage","Talkback Luces","Talkback Video",
 
-    const src = new Set(baseSource), dst = new Set(baseDest), mic = new Set(baseMic), nts = new Set(baseNotes);
-    snakes().forEach(s=>{
-      (s.channels||[]).forEach(c=>{ if(c.source) src.add(c.source); if(c.destination) dst.add(c.destination); if(c.micType) mic.add(c.micType); if(c.notes) nts.add(c.notes); });
-      (s.returns||[]).forEach(r=>{ if(r.source) src.add(r.source); if(r.destination) dst.add(r.destination); if(r.notes) nts.add(r.notes); });
+    // ===== BATERÍA ACÚSTICA =====
+    "Bombo In","Bombo Out","Caja Top","Caja Bottom","Caja sample",
+    "Caja 2","Caja 3","Hi Hat","Snare","Snare top","Snare Bottom",
+    "Charles","Tom 1","Tom 2","Tom 3","Tom 4","Tom base",
+    "Overhead L","Overhead R","Ride","Crash L","Crash R","China","Splash",
+    "Room L","Room R","Room Mono","Ambiente batería",
+    "Pad batería L","Pad batería R","SPD-SX L","SPD-SX R","Click batería",
+
+    // ===== PERCUSIÓN =====
+    "Conga L","Conga R","Bongo","Timbal L","Timbal R","Cajón","Shaker","Pandereta",
+    "Campana","Bloque","Udu","Djembe","Güiro","Percusión L","Percusión R","Percusión sample L","Percusión sample R","Oh","Oh L","Oh R",
+
+    // ===== BAJO =====
+    "Bajo DI","Bajo Mic","Bajo limpio","Bajo drive","Bajo L","Bajo R","Bajo FX L","Bajo FX R","Sintetizador bajo",
+
+    // ===== GUITARRAS =====
+    "Guitarra 1 Mic","Guitarra 1 DI","Guitarra 2 Mic","Guitarra 2 DI","Guitarra 3 Mic","Guitarra 3 DI","Tres Cubano",
+    "Guitarra eléctrica L","Guitarra eléctrica R",
+    "Guitarra acústica DI","Guitarra acústica Mic","Guitarra nylon DI","Guitarra nylon Mic",
+    "Guitarra L XLR","Guitarra R XLR","Guitarras L XLR","Guitarras R XLR",
+    "Pedalera L","Pedalera R","Amp Sim L","Amp Sim R",
+
+    // ===== TECLADOS / PADS / ELECTRÓNICA =====
+    "Teclado 1 L","Teclado 1 R","Teclado 2 L","Teclado 2 R","Teclado 3 L","Teclado 3 R",
+    "Piano L","Piano R","Piano Mono","Rhodes L","Rhodes R","Órgano L","Órgano R",
+    "Sintetizador L","Sintetizador R","Lead synth","Pad synth",
+    "Pad L","Pad R","Pads L","Pads R",
+    "Sampler L","Sampler R","Secuencias L","Secuencias R","Ableton L","Ableton R","MainStage L","MainStage R","Acordeón","Melódica",
+    "Click","Cue L","Cue R","Referencia L","Referencia R",
+
+    // ===== DJ / PLAYBACK =====
+    "DJ 1 L","DJ 1 R","DJ 2 L","DJ 2 R","Controladora L","Controladora R",
+    "Playback L","Playback R","Pistas L","Pistas R","FX L","FX R","SFX L","SFX R","Stems Drums","Stems Bass","Stems Music","Stems Vox",
+
+    // ===== VIENTOS =====
+    "Saxo alto","Saxo tenor","Saxo barítono","Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Tuba","Flauta","Clarinete","Oboe","Fagot","Corno francés",
+
+    // ===== CUERDAS =====
+    "Violín 1","Violín 2","Viola","Cello","Contrabajo","Arpa",
+
+    // ===== CORO / ORQUESTA EXTRA =====
+    "Coro soprano","Coro alto","Coro tenor","Coro bajo","Ensemble L","Ensemble R",
+
+    // ===== AMBIENTES / FX =====
+    "Ambiente L","Ambiente R","Ambiente sala","Ambiente público","Room audience L","Room audience R",
+
+    // ===== COMUNICACIONES / IFB =====
+    "IFB Prod","IFB Host","IFB Invitado","Comms Stage Manager","Comms Dirección","Comms Cámaras",
+
+    // ===== VIDEO / BROADCAST =====
+    "VT L","VT R","Playout L","Playout R","Retorno Broadcast L","Retorno Broadcast R",
+
+    // ===== BACKLINE / OTROS =====
+    "Acordeón L","Acordeón R","Mandolina DI","Ukulele DI","Banjo DI","Armónica",
+    "Piano vertical Mic L","Piano vertical Mic R","Wurlitzer L","Wurlitzer R"
+  ];
+
+  const baseDest = [
+    // ===== RIO (GENÉRICO) 32 IN / 16 OUT =====
+    "RIO IN 01","RIO IN 02","RIO IN 03","RIO IN 04","RIO IN 05","RIO IN 06","RIO IN 07","RIO IN 08",
+    "RIO IN 09","RIO IN 10","RIO IN 11","RIO IN 12","RIO IN 13","RIO IN 14","RIO IN 15","RIO IN 16",
+    "RIO IN 17","RIO IN 18","RIO IN 19","RIO IN 20","RIO IN 21","RIO IN 22","RIO IN 23","RIO IN 24",
+    "RIO IN 25","RIO IN 26","RIO IN 27","RIO IN 28","RIO IN 29","RIO IN 30","RIO IN 31","RIO IN 32",
+
+    "RIO OUT 01","RIO OUT 02","RIO OUT 03","RIO OUT 04","RIO OUT 05","RIO OUT 06","RIO OUT 07","RIO OUT 08",
+    "RIO OUT 09","RIO OUT 10","RIO OUT 11","RIO OUT 12","RIO OUT 13","RIO OUT 14","RIO OUT 15","RIO OUT 16",
+
+    // ===== DiGiCo Racks =====
+    "SD-RACK IN 01","SD-RACK IN 02","SD-RACK IN 03","SD-RACK IN 04","SD-RACK IN 05","SD-RACK IN 06","SD-RACK IN 07","SD-RACK IN 08",
+    "SD-RACK IN 09","SD-RACK IN 10","SD-RACK IN 11","SD-RACK IN 12","SD-RACK IN 13","SD-RACK IN 14","SD-RACK IN 15","SD-RACK IN 16",
+    "SD-RACK IN 17","SD-RACK IN 18","SD-RACK IN 19","SD-RACK IN 20","SD-RACK IN 21","SD-RACK IN 22","SD-RACK IN 23","SD-RACK IN 24",
+    "SD-RACK IN 25","SD-RACK IN 26","SD-RACK IN 27","SD-RACK IN 28","SD-RACK IN 29","SD-RACK IN 30","SD-RACK IN 31","SD-RACK IN 32",
+    "SD-RACK IN 33","SD-RACK IN 34","SD-RACK IN 35","SD-RACK IN 36","SD-RACK IN 37","SD-RACK IN 38","SD-RACK IN 39","SD-RACK IN 40",
+    "SD-RACK IN 41","SD-RACK IN 42","SD-RACK IN 43","SD-RACK IN 44","SD-RACK IN 45","SD-RACK IN 46","SD-RACK IN 47","SD-RACK IN 48",
+    "SD-RACK IN 49","SD-RACK IN 50","SD-RACK IN 51","SD-RACK IN 52","SD-RACK IN 53","SD-RACK IN 54","SD-RACK IN 55","SD-RACK IN 56",
+    "SD-RACK OUT 01","SD-RACK OUT 02","SD-RACK OUT 03","SD-RACK OUT 04","SD-RACK OUT 05","SD-RACK OUT 06","SD-RACK OUT 07","SD-RACK OUT 08",
+    "SD-RACK OUT 09","SD-RACK OUT 10","SD-RACK OUT 11","SD-RACK OUT 12","SD-RACK OUT 13","SD-RACK OUT 14","SD-RACK OUT 15","SD-RACK OUT 16",
+    "SD-RACK OUT 17","SD-RACK OUT 18","SD-RACK OUT 19","SD-RACK OUT 20","SD-RACK OUT 21","SD-RACK OUT 22","SD-RACK OUT 23","SD-RACK OUT 24",
+    "SD-RACK OUT 25","SD-RACK OUT 26","SD-RACK OUT 27","SD-RACK OUT 28","SD-RACK OUT 29","SD-RACK OUT 30","SD-RACK OUT 31","SD-RACK OUT 32",
+
+    "SD-MINIRACK IN 01","SD-MINIRACK IN 02","SD-MINIRACK IN 03","SD-MINIRACK IN 04","SD-MINIRACK IN 05","SD-MINIRACK IN 06","SD-MINIRACK IN 07","SD-MINIRACK IN 08",
+    "SD-MINIRACK IN 09","SD-MINIRACK IN 10","SD-MINIRACK IN 11","SD-MINIRACK IN 12","SD-MINIRACK IN 13","SD-MINIRACK IN 14","SD-MINIRACK IN 15","SD-MINIRACK IN 16",
+    "SD-MINIRACK IN 17","SD-MINIRACK IN 18","SD-MINIRACK IN 19","SD-MINIRACK IN 20","SD-MINIRACK IN 21","SD-MINIRACK IN 22","SD-MINIRACK IN 23","SD-MINIRACK IN 24",
+    "SD-MINIRACK IN 25","SD-MINIRACK IN 26","SD-MINIRACK IN 27","SD-MINIRACK IN 28","SD-MINIRACK IN 29","SD-MINIRACK IN 30","SD-MINIRACK IN 31","SD-MINIRACK IN 32",
+    "SD-MINIRACK OUT 01","SD-MINIRACK OUT 02","SD-MINIRACK OUT 03","SD-MINIRACK OUT 04","SD-MINIRACK OUT 05","SD-MINIRACK OUT 06","SD-MINIRACK OUT 07","SD-MINIRACK OUT 08",
+    "SD-MINIRACK OUT 09","SD-MINIRACK OUT 10","SD-MINIRACK OUT 11","SD-MINIRACK OUT 12","SD-MINIRACK OUT 13","SD-MINIRACK OUT 14","SD-MINIRACK OUT 15","SD-MINIRACK OUT 16",
+
+    "SD-NANORACK IN 01","SD-NANORACK IN 02","SD-NANORACK IN 03","SD-NANORACK IN 04","SD-NANORACK IN 05","SD-NANORACK IN 06","SD-NANORACK IN 07","SD-NANORACK IN 08",
+    "SD-NANORACK IN 09","SD-NANORACK IN 10","SD-NANORACK IN 11","SD-NANORACK IN 12","SD-NANORACK OUT 01","SD-NANORACK OUT 02","SD-NANORACK OUT 03","SD-NANORACK OUT 04",
+
+    // ===== Patch / Split =====
+    "Patch A1","Patch A2","Patch A3","Patch A4","Patch B1","Patch B2","Patch B3","Patch B4",
+    "Split FOH","Split MON","Split Broadcast","Split Grabación",
+
+    // ===== FOH =====
+    "FOH CH 01","FOH CH 02","FOH CH 03","FOH CH 04","FOH CH 05","FOH CH 06","FOH CH 07","FOH CH 08",
+    "FOH CH 09","FOH CH 10","FOH CH 11","FOH CH 12","FOH CH 13","FOH CH 14","FOH CH 15","FOH CH 16",
+    "FOH CH 17","FOH CH 18","FOH CH 19","FOH CH 20","FOH CH 21","FOH CH 22","FOH CH 23","FOH CH 24",
+    "FOH CH 25","FOH CH 26","FOH CH 27","FOH CH 28","FOH CH 29","FOH CH 30","FOH CH 31","FOH CH 32",
+	"OMNI 01","OMNI 02","OMNI 03","OMNI 04","OMNI 05","OMNI 06","OMNI 07","OMNI 08",
+"OMNI 09","OMNI 10","OMNI 11","OMNI 12","OMNI 13","OMNI 14","OMNI 15","OMNI 16",
+
+    // ===== MON / IEM / PA =====
+    "MON CH 01","MON CH 02","MON CH 03","MON CH 04","MON CH 05","MON CH 06","MON CH 07","MON CH 08",
+    "IEM Voz L","IEM Voz R","IEM Guitarra L","IEM Guitarra R","IEM Bajo L","IEM Bajo R","IEM Batería L","IEM Batería R",
+    "Wedge 1","Wedge 2","Wedge 3","Wedge 4","Drum Fill","Side Fill L","Side Fill R",
+    "PA L","PA R","SUB","Front Fill","Delay L","Delay R","Out Fill L","Out Fill R",
+
+    // ===== Matrices / Grabación =====
+    "Matriz 1","Matriz 2","Matriz 3","Matriz 4","Matriz 5","Matriz 6","Matriz 7","Matriz 8",
+    "Grabación L","Grabación R","Broadcast L","Broadcast R","Streaming L","Streaming R",
+
+    // ===== MONITORES =====
+    "MON CH 01","MON CH 02","MON CH 03","MON CH 04","MON CH 05","MON CH 06","MON CH 07","MON CH 08",
+    "MON CH 09","MON CH 10","MON CH 11","MON CH 12","MON CH 13","MON CH 14","MON CH 15","MON CH 16",
+	"OMNI 01","OMNI 02","OMNI 03","OMNI 04","OMNI 05","OMNI 06","OMNI 07","OMNI 08",
+"OMNI 09","OMNI 10","OMNI 11","OMNI 12","OMNI 13","OMNI 14","OMNI 15","OMNI 16",
+
+    // ===== IEM / WEDGES =====
+    "IEM Voz L","IEM Voz R","IEM Coros L","IEM Coros R","IEM Guitarra L","IEM Guitarra R",
+    "IEM Bajo L","IEM Bajo R","IEM Teclado L","IEM Teclado R","IEM Batería L","IEM Batería R",
+    "IEM Director musical L","IEM Director musical R",
+    "Wedge 1","Wedge 2","Wedge 3","Wedge 4","Wedge 5","Wedge 6","Drum Fill","Side Fill L","Side Fill R",
+
+    // ===== PA / SYSTEM =====
+    "PA L","PA R","PA C","SUB","SUB AUX","Front Fill","Out Fill L","Out Fill R","In Fill L","In Fill R",
+    "Delay L","Delay R","Balcón L","Balcón R","Lobby L","Lobby R","VIP L","VIP R",
+
+    // ===== MATRICES / BUSES =====
+    "Matriz 1","Matriz 2","Matriz 3","Matriz 4","Matriz 5","Matriz 6","Matriz 7","Matriz 8",
+    "Bus FX 1","Bus FX 2","Bus FX 3","Bus FX 4","Bus Drum","Bus Vox","Bus Music","Bus Speech",
+
+    // ===== GRABACIÓN / BROADCAST / STREAM =====
+    "Grabación L","Grabación R","Multitrack 01","Multitrack 02","Multitrack 03","Multitrack 04",
+    "Broadcast L","Broadcast R","Mix Minus 1","Mix Minus 2","IFB Send 1","IFB Send 2",
+    "Streaming L","Streaming R","Webcast L","Webcast R",
+
+    // ===== VIDEO / COMMS =====
+    "Video IN L","Video IN R","VT Return L","VT Return R","Intercom Dirección","Intercom Cámaras"
+  ];
+
+  const baseMic = [
+    // ===== DINÁMICOS =====
+    "Shure SM58","Shure SM57","Shure Beta58A","Shure Beta57A","Shure Beta52A","Shure SM7B",
+    "Sennheiser e835","Sennheiser e845","Sennheiser e935","Sennheiser e945","Sennheiser e906","Sennheiser e609",
+    "Sennheiser MD421","Sennheiser MD441","Electro-Voice RE20","Electro-Voice RE27",
+    "Audix D6","Audix i5","Audix D2","Audix D4","Beyerdynamic M88","Beyerdynamic M201",
+
+    // ===== CONDENSADOR =====
+    "AKG C414","AKG C214","AKG C451","AKG C519","Neumann KM184","Neumann KMS105","Neumann U87","Neumann TLM103",
+    "Audio-Technica AT4050","Audio-Technica AT4040","Audio-Technica ATM450","Rode NT5","Rode NT1","Rode NT55",
+    "sE8","sE4400","DPA 4099","DPA 2011","Earthworks SR314",
+
+    // ===== BOMBO / BATERÍA =====
+    "AKG D112","Shure Beta52","Shure Beta91A","Sennheiser e602","Sennheiser e902","Telefunken M82",
+
+    // ===== CINTA =====
+    "Royer R-121","AEA R84","Beyerdynamic M160",
+
+    // ===== INSTRUMENTO / CLIP =====
+    "Shure Beta98","Shure PGA98","Audio-Technica Pro35","Sennheiser e908","AKG C516",
+
+    // ===== DI =====
+    "DI Activa","DI Pasiva","Radial J48","Radial ProDI","BSS AR-133","Countryman Type 85","Palmer PAN 01",
+
+    // ===== INALÁMBRICO / IEM =====
+    "Wireless HH","Wireless BP","Inalámbrico mano","Inalámbrico petaca","Headset","Lavalier",
+    "In-Ear TX","In-Ear RX","PZM","Boundary Mic"
+  ];
+
+  const baseNotes = [
+    // ===== GANANCIA / PREVIO =====
+    "Ganancia baja","Ganancia media","Ganancia alta","Evitar clip","Revisar ruido","Entrada muy caliente",
+    "Pad -10dB","Pad -20dB","Pad OFF",
+
+    // ===== PHANTOM / POLARIDAD =====
+    "Phantom ON","Phantom OFF","Sin phantom","Invertir fase","Polaridad normal","Revisar polaridad",
+
+    // ===== FILTROS / DINÁMICA =====
+    "HPF ON","HPF OFF","LPF ON","Puerta suave","Compresión ligera","Compresión media","Sin compresión",
+
+    // ===== OPERATIVA =====
+    "Mute inicio","Abrir en tema 2","Canal de respaldo","Canal principal","Solo MON","Solo FOH",
+    "Solo Broadcast","No enviar a PA","Enviar a FX1","Enviar a FX2","Enviar a Reverb","Enviar a Delay",
+    "Subir +3dB en solo","Bajar -3dB en versos","Pan L","Pan R","Centro",
+
+    // ===== CABLEADO =====
+    "XLR balanceado","TRS balanceado","TS instrumento","DI requerida","Cable corto","Cable largo","Línea estéreo","Línea mono",
+
+    // ===== SHOW CONTROL =====
+    "Chequear antes de show","Revisar en prueba","Prioridad director musical","Prioridad locución",
+    "Micro compartido","No tocar patch","Seguridad / safety","Duplicado A/B",
+
+    // ===== FALLOS / ALERTAS =====
+    "Intermitente","Con ruido","Sin señal","Posible falso contacto","Revisar con RF","Batería baja transmisor"
+  ];
+
+  const src = new Set(baseSource), dst = new Set(baseDest), mic = new Set(baseMic), nts = new Set(baseNotes);
+
+  snakes().forEach(s=>{
+    (s.channels||[]).forEach(c=>{
+      if(c.source) src.add(c.source);
+      if(c.destination) dst.add(c.destination);
+      if(c.micType) mic.add(c.micType);
+      if(c.notes) nts.add(c.notes);
     });
-    return { source:[...src].slice(0,1000), destination:[...dst].slice(0,1000), mic:[...mic].slice(0,1000), notes:[...nts].slice(0,1000) };
-  }
+    (s.returns||[]).forEach(r=>{
+      if(r.source) src.add(r.source);
+      if(r.destination) dst.add(r.destination);
+      if(r.notes) nts.add(r.notes);
+    });
+  });
+
+  const dedupe = arr => [...new Set(arr.map(v => String(v || "").trim()).filter(Boolean))];
+
+  return {
+    source: dedupe([...src]).slice(0,1000),
+    destination: dedupe([...dst]).slice(0,1000),
+    mic: dedupe([...mic]).slice(0,1000),
+    notes: dedupe([...nts]).slice(0,1000)
+  };
+}
 
   function fillDatalist(id, values){ $(id).innerHTML = values.map(v=>`<option value="${esc(v)}"></option>`).join(""); }
   function refreshDatalists(){
