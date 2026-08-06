@@ -1532,7 +1532,42 @@ async function saveStagepatchFile(){
     showBackToast("Pulsa atrás otra vez para salir");
     pushAppState("armed-exit");
   });
+let wakeLock = null;
 
+async function enableWakeLock() {
+  try {
+    if (!("wakeLock" in navigator)) return; // navegador no compatible
+    wakeLock = await navigator.wakeLock.request("screen");
+    console.log("Wake Lock activo");
+
+    wakeLock.addEventListener("release", () => {
+      console.log("Wake Lock liberado");
+    });
+  } catch (err) {
+    console.warn("Wake Lock no disponible:", err?.message || err);
+  }
+}
+
+async function disableWakeLock() {
+  try {
+    if (wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch {}
+}
+
+// Re-activar al volver a la app (Android lo suelta al apagar pantalla/cambiar app)
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible") {
+    await enableWakeLock();
+  } else {
+    await disableWakeLock();
+  }
+});
+
+// Activar al iniciar
+window.addEventListener("load", enableWakeLock);
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").then(() => {
