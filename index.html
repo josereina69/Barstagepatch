@@ -336,8 +336,14 @@
           <div class="row">
             <button id="saveStagepatch" class="btn-ok">Guardar (.stagepatch)</button>
             <button id="importStagepatch">Importar (.stagepatch)</button>
+
+            <button id="uploadRiderBtn" class="btn-ghost">📄 Cargar Rider PDF</button>
+            <button id="viewRiderBtn" class="btn-ghost">👁 Ver Rider</button>
+            <button id="removeRiderBtn" class="btn-danger">🗑 Quitar Rider</button>
+
             <button id="clearAll" class="btn-danger">Borrar todo</button>
           </div>
+          <div id="riderStatus" class="small" style="margin-top:8px">Rider: no cargado</div>
         </div>
       </div>
       <div class="grid grid-2" style="margin-top:8px">
@@ -398,6 +404,20 @@
   </div>
 </div>
 
+<div id="riderModal" class="editor no-print">
+  <div class="editor-panel">
+    <div class="editor-top">
+      <div class="row">
+        <button id="closeRiderBtn">← Volver</button>
+      </div>
+      <div class="sub">Vista Rider / Lista PDF</div>
+    </div>
+    <div class="editor-body" style="padding:0">
+      <iframe id="riderFrame" title="Rider PDF" style="width:100%;height:100%;border:0;background:#0b1020"></iframe>
+    </div>
+  </div>
+</div>
+
 <div class="sticky-bottom no-print edit-only">
   <div class="sticky-wrap">
     <button id="quickNew" class="btn">+ Nuevo subsnake</button>
@@ -409,8 +429,7 @@
 <datalist id="dl-destination"></datalist>
 <datalist id="dl-mic"></datalist>
 <datalist id="dl-notes"></datalist>
-
-<script>
+ <script>
   const RETURN_LABELS = ["A","B","C","D","E","F","G","H"];
   const STAGEPATCH_EXT = ".stagepatch";
   const STAGEPATCH_MIME = "application/x-stagepatch+json";
@@ -790,540 +809,666 @@
     fillDatalist("dl-mic", s.mic);
     fillDatalist("dl-notes", s.notes);
   }
-
   function renderEditor(){
-    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return closeEditor();
-    $("edName").value = s.name || ""; $("edZone").value = s.zone || ""; $("edColor").value = s.color || "#4f8cff";
-    renderEditorBody();
-  }
-
-  let fieldEditArmed = false;
-  function startFieldEdit(){
-    if(!fieldEditArmed){ snapshot("field edit"); fieldEditArmed = true; setTimeout(()=>fieldEditArmed=false, 700); }
-  }
-
-  function setChannelFail(idx, val){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    s.channels[idx].fail = !!val;
-    renderEditorBody(); renderSearchResults(); renderSheetView();
-  }
-
-  function setReturnFail(idx, val){
-    const s = snakes().find(x=>x.id===editorSnakeId); if(!s || !(s.returns||[])[idx]) return;
-    s.returns[idx].fail = !!val;
-    renderEditorBody(); renderSearchResults(); renderSheetView();
+    $("edName").value = s.name; $("edZone").value = s.zone || ""; $("edColor").value = s.color || "#4f8cff";
+    renderEditorBody();
   }
 
   function renderEditorBody(){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    const body = $("editorBody"); refreshDatalists();
-
+    const body = $("editorBody");
     if(activeTab==="inputs"){
-      body.innerHTML = s.channels.map((c,idx)=>`
-        <div class="patch-card ${c.fail ? 'is-fail' : ''}">
+      body.innerHTML = s.channels.map((c,i)=>`
+        <div class="patch-card ${c.fail ? "is-fail" : ""}">
           <div class="patch-title">
-            <span>CH ${c.channel} <span class="small">Entrada</span></span>
-            <label class="fail-toggle">
-              <input type="checkbox" ${c.fail ? "checked" : ""} onchange="setChannelFail(${idx}, this.checked)">
-              Falla
+            <span>Entrada ${c.channel}</span>
+            <label class="fail-toggle" title="Marcar como en fallo/no disponible">
+              <input type="checkbox" ${c.fail ? "checked" : ""} onchange="toggleFail('in',${i},this.checked)">
+              FALLA
             </label>
           </div>
           <div class="grid grid-2">
-            <div><label>Fuente</label><input list="dl-source" value="${esc(c.source)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'source',this.value)"></div>
-            <div><label>Destino</label><input list="dl-destination" value="${esc(c.destination)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'destination',this.value)"></div>
-            <div><label>Mic / DI</label><input list="dl-mic" value="${esc(c.micType)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'micType',this.value)"></div>
-            <div><label>Notas</label><input list="dl-notes" value="${esc(c.notes)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'notes',this.value)"></div>
+            <div><label>Fuente</label><input list="dl-source" value="${esc(c.source)}" onchange="updIn(${i},'source',this.value)"></div>
+            <div><label>Destino</label><input list="dl-destination" value="${esc(c.destination)}" onchange="updIn(${i},'destination',this.value)"></div>
+            <div><label>Tipo de micro</label><input list="dl-mic" value="${esc(c.micType||'')}" onchange="updIn(${i},'micType',this.value)"></div>
+            <div><label>Notas</label><input list="dl-notes" value="${esc(c.notes||'')}" onchange="updIn(${i},'notes',this.value)"></div>
           </div>
-        </div>`).join("");
-    } else {
-      if(!(s.returns || []).length){
-        body.innerHTML = `<div class="patch-card"><div class="small">Esta manguera no tiene salidas (0).</div></div>`;
-        return;
-      }
-
-      body.innerHTML = s.returns.map((r,idx)=>`
-        <div class="patch-card ${r.fail ? 'is-fail' : ''}">
+        </div>
+      `).join("");
+    }else{
+      body.innerHTML = (s.returns||[]).map((r,i)=>`
+        <div class="patch-card ${r.fail ? "is-fail" : ""}">
           <div class="patch-title">
-            <span>OUT ${r.label} <span class="small">Salida</span></span>
-            <label class="fail-toggle">
-              <input type="checkbox" ${r.fail ? "checked" : ""} onchange="setReturnFail(${idx}, this.checked)">
-              Falla
+            <span>Salida ${r.label}</span>
+            <label class="fail-toggle" title="Marcar como en fallo/no disponible">
+              <input type="checkbox" ${r.fail ? "checked" : ""} onchange="toggleFail('out',${i},this.checked)">
+              FALLA
             </label>
           </div>
           <div class="grid grid-2">
-            <div><label>Fuente (AUX/MATRIX)</label><input list="dl-source" value="${esc(r.source)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'source',this.value)"></div>
-            <div><label>Destino</label><input list="dl-destination" value="${esc(r.destination)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'destination',this.value)"></div>
-            <div class="grid" style="grid-column:1/-1"><label>Notas</label><input list="dl-notes" value="${esc(r.notes)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'notes',this.value)"></div>
+            <div><label>Fuente</label><input list="dl-source" value="${esc(r.source)}" onchange="updOut(${i},'source',this.value)"></div>
+            <div><label>Destino</label><input list="dl-destination" value="${esc(r.destination)}" onchange="updOut(${i},'destination',this.value)"></div>
+            <div><label>Notas</label><input list="dl-notes" value="${esc(r.notes||'')}" onchange="updOut(${i},'notes',this.value)"></div>
           </div>
-        </div>`).join("");
+        </div>
+      `).join("") || `<div class="small">Este subsnake no tiene salidas.</div>`;
     }
   }
 
-  function updCh(idx,key,val){ const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return; s.channels[idx][key]=val; renderSearchResults(); renderSheetView(); }
-  function updRet(idx,key,val){ const s = snakes().find(x=>x.id===editorSnakeId); if(!s || !(s.returns||[])[idx]) return; s.returns[idx][key]=val; renderSearchResults(); renderSheetView(); }
-
-  function applyEditorMeta(){
+  function updIn(i,k,v){
+    if(isReadMode()) return;
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    snapshot("editor meta");
+    snapshot("edit input");
+    s.channels[i][k]=v;
+    renderList(); renderSearchResults(); refreshDatalists(); renderSheetView();
+  }
+  function updOut(i,k,v){
+    if(isReadMode()) return;
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    snapshot("edit output");
+    s.returns[i][k]=v;
+    renderList(); renderSearchResults(); refreshDatalists(); renderSheetView();
+  }
+
+  function toggleFail(kind, i, checked){
+    if(isReadMode()) return;
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    snapshot("toggle fail");
+    if(kind === "in"){
+      if(s.channels[i]) s.channels[i].fail = !!checked;
+    } else {
+      if(s.returns?.[i]) s.returns[i].fail = !!checked;
+    }
+    renderEditorBody();
+    renderList();
+    renderSearchResults();
+    renderSheetView();
+  }
+
+  function autoDestInputs(){
+    if(isReadMode()) return;
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    snapshot("auto destination");
+    s.channels.forEach((c,i)=> c.destination = `Rack Input ${String(i+1).padStart(2,'0')}`);
+    renderEditorBody(); renderList(); renderSearchResults(); renderSheetView();
+  }
+
+  function saveEditorMeta(){
+    if(isReadMode()) return;
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    snapshot("edit snake meta");
     s.name = $("edName").value.trim() || s.name;
     s.zone = $("edZone").value.trim();
     s.color = $("edColor").value;
     renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshSheetFilter(); renderSheetView();
   }
 
-  function autoDestinationsCurrent(){
-    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    snapshot("auto destination");
-
-    const base = prompt("Nombre base destino entradas:", "Rack A"); if(base === null) return;
-    const start = Number(prompt("Empezar en input #:", "1")); if(Number.isNaN(start) || start < 1) return alert("Inicio inválido.");
-    const end = Number(prompt("Terminar en input #:", String(start + s.channels.length - 1))); if(Number.isNaN(end) || end < 1) return alert("Fin inválido.");
-    if(end < start) return alert("El final no puede ser menor que el inicio.");
-
-    const count = end - start + 1;
-    s.channels.forEach((c, i)=>{ c.destination = i < count ? `${base} - Input ${String(start + i).padStart(2,"0")}` : ""; });
-    renderEditorBody(); renderSearchResults(); renderSheetView();
-    alert(`Auto destino aplicado de ${start} a ${end}. El resto quedó vacío.`);
+  function refreshPrintSnakeSelect(){
+    const sel = $("printSnakeSelect");
+    sel.innerHTML = snakes().map((s,i)=>`<option value="${s.id}">${i+1}. ${esc(s.name)}</option>`).join("");
   }
 
-  function buildPortableStagepatchObject(){
-    return { app: "Barstage Patch", format: "stagepatch", schemaVersion: STAGEPATCH_SCHEMA_VERSION, exportedAt: new Date().toISOString(), payload: appData };
+  function refreshSheetFilter(){
+    const sel = $("sheetSnakeFilter");
+    const current = sel.value;
+    sel.innerHTML = `<option value="all">Todas las mangueras</option>` + snakes().map((s,i)=>`<option value="${s.id}">${i+1}. ${esc(s.name)}</option>`).join("");
+    if([...sel.options].some(o=>o.value===current)) sel.value = current;
   }
 
-  function exportStagepatch(){
-    if(isReadMode()) return;
-    const blob = new Blob([JSON.stringify(buildPortableStagepatchObject(), null, 2)], { type: STAGEPATCH_MIME });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `barstage_patch_${(appData.show.name || "show").replace(/[^\w\-]+/g,"_")}${STAGEPATCH_EXT}`;
-    a.click(); URL.revokeObjectURL(a.href);
+  function renderSearchResults(){
+    const q = $("search").value.trim().toLowerCase();
+    const box = $("searchResults"), list = $("searchResultsList");
+    if(!q){ box.style.display="none"; list.innerHTML=""; return; }
+
+    const results = [];
+    snakes().forEach((s,si)=>{
+      (s.channels||[]).forEach((c,ci)=>{
+        const t = [s.name,s.zone,c.channel,c.source,c.destination,c.micType,c.notes, c.fail?"falla":"ok"].join(" ").toLowerCase();
+        if(t.includes(q)) results.push({type:"Entrada", snakeId:s.id, snakeIndex:si+1, snake:s.name, zone:s.zone||"—", ch:c.channel, source:c.source||"—", destination:c.destination||"—", mic:c.micType||"—", notes:c.notes||"—", fail:!!c.fail});
+      });
+      (s.returns||[]).forEach((r,ri)=>{
+        const t = [s.name,s.zone,r.label,r.source,r.destination,r.notes, r.fail?"falla":"ok"].join(" ").toLowerCase();
+        if(t.includes(q)) results.push({type:"Salida", snakeId:s.id, snakeIndex:si+1, snake:s.name, zone:s.zone||"—", ch:r.label, source:r.source||"—", destination:r.destination||"—", mic:"—", notes:r.notes||"—", fail:!!r.fail});
+      });
+    });
+
+    box.style.display = "block";
+    if(!results.length){ list.innerHTML = `<div class="small">Sin resultados para "${esc(q)}".</div>`; return; }
+
+    list.innerHTML = results.map(r=>`
+      <div class="result-item">
+        <div class="result-top">
+          <div><span class="badge">${r.type}</span> <strong>${esc(r.snake)}</strong> <span class="small">(#${r.snakeIndex})</span></div>
+          <div class="row" style="min-width:220px">
+            <button onclick="openSnakeAndTab('${r.snakeId}','${r.type==='Entrada'?'inputs':'outputs'}')">Abrir</button>
+          </div>
+        </div>
+        <div class="result-grid">
+          <div><div class="k">Zona / Canal</div><div class="v">${esc(r.zone)} / ${esc(String(r.ch))}</div></div>
+          <div><div class="k">Fuente → Destino</div><div class="v">${esc(r.source)} → ${esc(r.destination)}</div></div>
+          <div><div class="k">Mic</div><div class="v">${esc(r.mic)}</div></div>
+          <div><div class="k">Notas</div><div class="v">${esc(r.notes)} ${r.fail ? " · ⚠️ FALLA" : ""}</div></div>
+        </div>
+      </div>
+    `).join("");
   }
 
-  function importStagepatch(){
-    if(isReadMode()) return;
-    const i = document.createElement("input");
-    i.type = "file";
-    i.accept = `${STAGEPATCH_EXT},${STAGEPATCH_MIME},application/json`;
-    i.onchange = async ()=>{
-      const f = i.files?.[0]; if(!f) return;
-      try{
-        const data = JSON.parse(await f.text());
-        snapshot("import");
-        if(data?.format === "stagepatch" && data?.payload){
-          appData = { show: data.payload.show || {name:"",artist:"",date:""}, snakes: data.payload.snakes || [] };
-        } else if (data && Array.isArray(data.snakes)) {
-          appData = { show: data.show || {name:"",artist:"",date:""}, snakes: data.snakes || [] };
-        } else throw new Error("Archivo no válido de StagePatch.");
-        normalize(); refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
-        alert("Archivo importado correctamente.");
-      }catch(e){ alert("Error importando .stagepatch: " + e.message); }
+  function toStagepatch(){
+    return {
+      app: "barstage-patch",
+      schemaVersion: STAGEPATCH_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      show: appData.show,
+      snakes: appData.snakes
     };
-    i.click();
   }
 
-  function importStagepatchFromWelcome(){
-    const i = document.createElement("input");
-    i.type = "file";
-    i.accept = `${STAGEPATCH_EXT},${STAGEPATCH_MIME},application/json`;
-    i.onchange = async ()=>{
-      const f = i.files?.[0]; if(!f) return;
+  function validateStagepatch(obj){
+    if(!obj || typeof obj !== "object") throw new Error("Archivo inválido.");
+    if(!Array.isArray(obj.snakes)) throw new Error("Falta lista de subsnakes.");
+    if(obj.schemaVersion && obj.schemaVersion > STAGEPATCH_SCHEMA_VERSION){
+      throw new Error("Versión no compatible todavía.");
+    }
+  }
+
+  function downloadFile(filename, content, mime){
+    const blob = new Blob([content], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 800);
+  }
+
+  function saveStagepatchFile(){
+    const payload = JSON.stringify(toStagepatch(), null, 2);
+    const base = (appData.show.name || "show").replace(/[^\w\-]+/g,"_");
+    downloadFile(`${base}${STAGEPATCH_EXT}`, payload, STAGEPATCH_MIME);
+  }
+
+  function importStagepatchFile(){
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = `${STAGEPATCH_EXT},application/json,${STAGEPATCH_MIME}`;
+    input.onchange = async ()=>{
+      const f = input.files?.[0]; if(!f) return;
       try{
-        const data = JSON.parse(await f.text());
-        if(data?.format === "stagepatch" && data?.payload){
-          appData = { show: data.payload.show || {name:"",artist:"",date:""}, snakes: data.payload.snakes || [] };
-        } else if (data && Array.isArray(data.snakes)) {
-          appData = { show: data.show || {name:"",artist:"",date:""}, snakes: data.snakes || [] };
-        } else throw new Error("Archivo no válido de StagePatch.");
+        const txt = await f.text();
+        const obj = JSON.parse(txt);
+        validateStagepatch(obj);
+        snapshot("import stagepatch");
+        appData = { show: obj.show || {name:"",artist:"",date:""}, snakes: obj.snakes || [] };
         normalize();
-        enterApp();
+        refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
+        autosaveNow();
+        alert("Archivo cargado correctamente.");
       }catch(e){
-        alert("Error importando .stagepatch: " + e.message);
+        alert("No se pudo importar: " + (e?.message || e));
       }
     };
-    i.click();
+    input.click();
   }
 
   function clearAll(){
     if(isReadMode()) return;
-    if(!confirm("¿Borrar toda la data?")) return;
+    if(!confirm("Esto borrará TODO en esta sesión. ¿Continuar?")) return;
     snapshot("clear all");
     appData = { show:{name:"",artist:"",date:""}, snakes:[] };
     refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
-  function refreshShowInputs(){ $("showName").value = appData.show.name || ""; $("artistName").value = appData.show.artist || ""; $("showDate").value = appData.show.date || ""; }
-
-  function renderSearchResults(){
-    const q = $("search").value.trim().toLowerCase(), wrap = $("searchResults"), listEl = $("searchResultsList");
-    if(!q){ wrap.style.display = "none"; listEl.innerHTML = ""; return; }
-
-    const hits = [];
-    snakes().forEach(s=>{
-      s.channels.forEach(ch=>{
-        if([ch.source,ch.destination,ch.micType,ch.notes, ch.fail ? "falla" : "ok", s.name,s.zone,`ch ${ch.channel}`].join(" ").toLowerCase().includes(q)){
-          hits.push({
-            type:"Entrada", snakeId:s.id, snakeName:s.name, zone:s.zone || "-", label:`CH ${ch.channel}`,
-            source:ch.source||"-", destination:ch.destination||"-", extra:ch.micType||"-", notes:ch.notes||"-",
-            fail:!!ch.fail, color:s.color
-          });
-        }
-      });
-      (s.returns || []).forEach(r=>{
-        if([r.label,r.source,r.destination,r.notes, r.fail ? "falla" : "ok", s.name,s.zone,`out ${r.label}`].join(" ").toLowerCase().includes(q)){
-          hits.push({
-            type:"Salida", snakeId:s.id, snakeName:s.name, zone:s.zone || "-", label:`OUT ${r.label}`,
-            source:r.source||"-", destination:r.destination||"-", extra:"-", notes:r.notes||"-",
-            fail:!!r.fail, color:s.color
-          });
-        }
-      });
-    });
-
-    if(!hits.length){ wrap.style.display = "block"; listEl.innerHTML = `<div class="small">Sin resultados para "<b>${esc(q)}</b>".</div>`; return; }
-
-    wrap.style.display = "block";
-    listEl.innerHTML = hits.map(h=>`
-      <div class="result-item">
-        <div class="result-top">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span class="dot" style="background:${h.color}"></span>
-            <strong>${esc(h.snakeName)}</strong>
-            <span class="badge">${h.type}</span>
-            <span class="badge">${esc(h.label)}</span>
-            ${h.fail ? `<span class="badge">FALLA</span>` : ``}
-          </div>
-          <button onclick="openSnakeAndTab('${h.snakeId}','${h.type==='Entrada' ? 'inputs' : 'outputs'}')">Abrir</button>
-        </div>
-        <div class="result-grid">
-          <div><div class="k">Zona</div><div class="v">${esc(h.zone)}</div></div>
-          <div><div class="k">Fuente</div><div class="v">${esc(h.source)}</div></div>
-          <div><div class="k">Destino</div><div class="v">${esc(h.destination)}</div></div>
-          <div><div class="k">Mic/DI</div><div class="v">${esc(h.extra)}</div></div>
-          <div style="grid-column:1/-1"><div class="k">Notas</div><div class="v">${esc(h.notes)}</div></div>
-        </div>
-      </div>`).join("");
-  }
-
-  function refreshPrintSnakeSelect(){
-    const sel = $("printSnakeSelect"), cur = sel.value;
-    sel.innerHTML = snakes().map(s=>`<option value="${s.id}">${esc(s.name)}${s.zone ? " · " + esc(s.zone) : ""}</option>`).join("");
-    if(cur && snakes().some(s=>s.id===cur)) sel.value = cur;
-  }
-
-  function getSnakesForPrint(){
-    if($("printMode").value === "one"){
-      const id = $("printSnakeSelect").value;
-      return snakes().filter(s=>s.id===id);
-    }
-    return snakes();
-  }
-
-  function buildPrintView(){
-    const snakesData = getSnakesForPrint();
-    $("printView").innerHTML = `
-      <div class="print-page">
-        ${snakesData.map(s=>`
-          <div class="print-snake" style="--snake-color:${esc(s.color || "#999")}">
-            <h3>${esc(s.name)} <span class="muted">(${s.zone ? esc(s.zone) : "Sin zona"})</span></h3>
-            <table class="print-table">
-              <thead><tr><th style="width:60px">CH</th><th>Fuente</th><th>Destino</th><th>Mic/DI</th><th>Notas</th></tr></thead>
-              <tbody>
-                ${(s.channels || []).map(c=>`
-                  <tr class="${c.fail ? 'print-row-fail' : ''}">
-                    <td>CH ${esc(c.channel)}</td>
-                    <td>${esc(c.source || "")}</td>
-                    <td>${esc(c.destination || "")}</td>
-                    <td>${esc(c.micType || "")}</td>
-                    <td>${esc(c.notes || "")}</td>
-                  </tr>`).join("")}
-              </tbody>
-            </table>
-
-            ${(s.returns || []).length ? `
-            <table class="print-table">
-              <thead><tr><th style="width:60px">OUT</th><th>Fuente</th><th>Destino</th><th>Notas</th></tr></thead>
-              <tbody>
-                ${(s.returns || []).map(r=>`
-                  <tr class="${r.fail ? 'print-row-fail' : ''}">
-                    <td>${esc(r.label || "")}</td>
-                    <td>${esc(r.source || "")}</td>
-                    <td>${esc(r.destination || "")}</td>
-                    <td>${esc(r.notes || "")}</td>
-                  </tr>`).join("")}
-              </tbody>
-            </table>
-            ` : ``}
-          </div>`).join("") || `<div>No hay mangueras para imprimir.</div>`}
-      </div>`;
-  }
-
-  function doPrint(){ buildPrintView(); window.print(); }
-
-  function refreshSheetFilter(){
-    const sel = $("sheetSnakeFilter");
-    const cur = sel.value || "all";
-    sel.innerHTML = `<option value="all">Todas las mangueras</option>` + snakes().map(s=>`<option value="${s.id}">${esc(s.name)}${s.zone ? " · " + esc(s.zone) : ""}</option>`).join("");
-    if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
-  }
-
-  function getSheetSnakes(){
-    const v = $("sheetSnakeFilter").value || "all";
-    return v === "all" ? snakes() : snakes().filter(s=>s.id===v);
-  }
-
-  function renderSheetView(){
-    const wrap = $("sheetContainer");
-    const list = getSheetSnakes();
-
-    if(!list.length){
-      wrap.innerHTML = `<div class="card"><div class="small">No hay mangueras para mostrar.</div></div>`;
-      return;
-    }
-
-    wrap.innerHTML = list.map(s=>`
-      <div class="sheet-group">
-        <div class="sheet-head">
-          <span class="dot" style="background:${s.color}"></span>
-          <span>${esc(s.name)}</span>
-          <span class="sheet-meta">· ${esc(s.zone || "Sin zona")} · ${s.channelsCount} entradas / ${s.returnsCount} salidas</span>
-        </div>
-
-        <div class="table-wrap">
-          <table class="sheet-table">
-            <thead>
-              <tr>
-                <th style="width:80px">CH</th>
-                <th>Fuente</th>
-                <th>Destino</th>
-                <th>Mic/DI</th>
-                <th>Notas</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(s.channels || []).map(c=>`
-                <tr class="${c.fail ? 'sheet-row-fail' : ''}">
-                  <td class="mono"><strong>CH ${esc(c.channel)}</strong></td>
-                  <td>${esc(c.source || "—")}</td>
-                  <td>${esc(c.destination || "—")}</td>
-                  <td>${esc(c.micType || "—")}</td>
-                  <td class="muted-x">${esc(c.notes || "—")}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-
-        ${(s.returns || []).length ? `
-        <div class="table-wrap">
-          <table class="sheet-table">
-            <thead>
-              <tr>
-                <th style="width:80px">OUT</th>
-                <th>Fuente</th>
-                <th>Destino</th>
-                <th>Notas</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(s.returns || []).map(r=>`
-                <tr class="${r.fail ? 'sheet-row-fail' : ''}">
-                  <td class="mono"><strong>${esc(r.label || "")}</strong></td>
-                  <td>${esc(r.source || "—")}</td>
-                  <td>${esc(r.destination || "—")}</td>
-                  <td class="muted-x">${esc(r.notes || "—")}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>` : ""}
-      </div>
-    `).join("");
+  function refreshShowInputs(){
+    $("showName").value = appData.show.name || "";
+    $("artistName").value = appData.show.artist || "";
+    $("showDate").value = appData.show.date || "";
   }
 
   function enterApp(){
     $("welcomeScreen").classList.add("hidden");
     $("appRoot").classList.remove("hidden");
-
-    normalize();
-    refreshShowInputs();
-    updateShowBadge();
-    renderList();
-    renderSearchResults();
-    refreshPrintSnakeSelect();
-    refreshDatalists();
-    refreshSheetFilter();
-    renderSheetView();
-    loadModePref();
-    buildPrintView();
-    updateUndoRedoButtons();
-    autosaveNow();
-  }
-
-  function startNewShow(){
-    appData = { show:{name:"",artist:"",date:""}, snakes:[] };
-    undoStack = []; redoStack = [];
-    enterApp();
   }
 
   function loadLastBackupAndEnter(){
     const data = readBackup();
-    if(!data){ alert("No hay backup local disponible."); return; }
-    appData = {
-      show: data.payload.show || {name:"",artist:"",date:""},
-      snakes: data.payload.snakes || []
-    };
-    undoStack = []; redoStack = [];
+    if(!data){ alert("No hay backup local."); return; }
+    appData = deepClone(data.payload);
+    normalize();
+    refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
     enterApp();
   }
+  function loadFileFromWelcome(){
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = `${STAGEPATCH_EXT},application/json,${STAGEPATCH_MIME}`;
+    input.onchange = async ()=>{
+      const f = input.files?.[0]; if(!f) return;
+      try{
+        const txt = await f.text();
+        const obj = JSON.parse(txt);
+        validateStagepatch(obj);
+        appData = { show: obj.show || {name:"",artist:"",date:""}, snakes: obj.snakes || [] };
+        normalize();
+        refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
+        autosaveNow();
+        enterApp();
+      }catch(e){
+        alert("No se pudo cargar: " + (e?.message || e));
+      }
+    };
+    input.click();
+  }
 
-  $("btnNewShow").addEventListener("click", startNewShow);
-  $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
-  $("btnLoadFile").addEventListener("click", importStagepatchFromWelcome);
+  function formatDatePretty(iso){
+    if(!iso) return "—";
+    const d = new Date(iso);
+    if(Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString();
+  }
 
-  $("saveShowMeta").addEventListener("click", saveShowMeta);
-  $("createSnake").addEventListener("click", createSnake);
-  $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
-  $("saveStagepatch").addEventListener("click", exportStagepatch);
-  $("importStagepatch").addEventListener("click", importStagepatch);
-  $("clearAll").addEventListener("click", clearAll);
-  $("printMode").addEventListener("change", buildPrintView);
-  $("printSnakeSelect").addEventListener("change", buildPrintView);
-  $("printBtn").addEventListener("click", doPrint);
-  $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
-  $("quickPrint").addEventListener("click", doPrint);
-  $("undoBtn").addEventListener("click", undo);
-  $("redoBtn").addEventListener("click", redo);
-  $("toggleReadMode").addEventListener("click", toggleMode);
+  function groupRowsForSnake(s){
+    const inRows = (s.channels||[]).map(c=>({
+      kind:"Entrada", ch:c.channel, source:c.source||"—", destination:c.destination||"—", mic:c.micType||"—", notes:c.notes||"—", fail:!!c.fail
+    }));
+    const outRows = (s.returns||[]).map(r=>({
+      kind:"Salida", ch:r.label, source:r.source||"—", destination:r.destination||"—", mic:"—", notes:r.notes||"—", fail:!!r.fail
+    }));
+    return [...inRows, ...outRows];
+  }
 
-  $("sheetSnakeFilter").addEventListener("change", renderSheetView);
-  $("sheetPrintBtn").addEventListener("click", doPrint);
+  function renderSheetView(){
+    const wrap = $("sheetContainer");
+    if(viewMode !== "read"){ wrap.innerHTML = ""; return; }
 
-  document.addEventListener("keydown", e=>{
-    const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
-    if(mod && k==="z" && !e.shiftKey){ e.preventDefault(); undo(); }
-    if((mod && k==="y") || (mod && e.shiftKey && k==="z")){ e.preventDefault(); redo(); }
+    const filter = $("sheetSnakeFilter").value || "all";
+    const list = (filter === "all") ? snakes() : snakes().filter(s=>s.id===filter);
+
+    if(!list.length){
+      wrap.innerHTML = `<div class="card"><div class="small">No hay datos para mostrar.</div></div>`;
+      return;
+    }
+
+    wrap.innerHTML = list.map((s, idx)=>{
+      const rows = groupRowsForSnake(s);
+      const rowsHtml = rows.map(r=>`
+        <tr class="${r.fail ? "sheet-row-fail" : ""}">
+          <td>${esc(r.kind)}</td>
+          <td class="mono">${esc(String(r.ch))}</td>
+          <td>${esc(r.source)}</td>
+          <td>${esc(r.destination)}</td>
+          <td>${esc(r.mic)}</td>
+          <td>${esc(r.notes)}</td>
+          <td>${r.fail ? "⚠️ FALLA" : "OK"}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <div class="sheet-group">
+          <div class="sheet-head">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:${s.color};border:1px solid rgba(255,255,255,.35)"></span>
+            <span>${idx+1}. ${esc(s.name)}</span>
+            <span class="sheet-meta">· ${s.channelsCount} IN + ${s.returnsCount} OUT ${s.zone ? "· " + esc(s.zone) : ""}</span>
+          </div>
+          <div class="table-wrap">
+            <table class="sheet-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th><th>Canal</th><th>Fuente</th><th>Destino</th><th>Mic</th><th>Notas</th><th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function buildPrintHTML(snakesToPrint){
+    const s = appData.show;
+    const header = `
+      <div style="margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700">Barstage Patch</div>
+        <div class="muted">Show: ${esc(s.name||"Sin definir")} · Artista: ${esc(s.artist||"—")} · Fecha: ${esc(s.date||"—")}</div>
+      </div>
+    `;
+
+    const blocks = snakesToPrint.map((sn, idx)=>{
+      const rows = groupRowsForSnake(sn).map(r=>`
+        <tr class="${r.fail ? "print-row-fail" : ""}">
+          <td>${esc(r.kind)}</td>
+          <td>${esc(String(r.ch))}</td>
+          <td>${esc(r.source)}</td>
+          <td>${esc(r.destination)}</td>
+          <td>${esc(r.mic)}</td>
+          <td>${esc(r.notes)}</td>
+          <td>${r.fail ? "FALLA" : "OK"}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <section class="print-snake" style="--snake-color:${sn.color}">
+          <h3>${idx+1}. ${esc(sn.name)} <span class="muted">(${sn.channelsCount} IN + ${sn.returnsCount} OUT${sn.zone ? " · " + esc(sn.zone) : ""})</span></h3>
+          <table class="print-table">
+            <thead>
+              <tr><th>Tipo</th><th>Canal</th><th>Fuente</th><th>Destino</th><th>Mic</th><th>Notas</th><th>Estado</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </section>
+      `;
+    }).join("");
+
+    return `<div class="print-page">${header}${blocks}</div>`;
+  }
+
+  function printNow(){
+    const mode = $("printMode").value;
+    let list = snakes();
+    if(mode === "one"){
+      const id = $("printSnakeSelect").value;
+      list = snakes().filter(s=>s.id===id);
+    }
+    if(!list.length){ alert("No hay subsnake(s) para imprimir."); return; }
+    $("printView").innerHTML = buildPrintHTML(list);
+    window.print();
+  }
+
+  const installState = { deferredPrompt:null };
+
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    installState.deferredPrompt = e;
+    $("btnInstallApp").classList.remove("hidden");
   });
 
-  $("closeEditor").addEventListener("click", ()=>{ applyEditorMeta(); closeEditor(); });
-  $("tabInputs").addEventListener("click", ()=>setTab("inputs"));
-  $("tabOutputs").addEventListener("click", ()=>setTab("outputs"));
-  $("edName").addEventListener("input", applyEditorMeta);
-  $("edZone").addEventListener("input", applyEditorMeta);
-  $("edColor").addEventListener("input", applyEditorMeta);
-  $("autoDestBtn").addEventListener("click", autoDestinationsCurrent);
+  $("btnInstallApp").addEventListener("click", async ()=>{
+    const p = installState.deferredPrompt;
+    if(!p){ alert("Instalación no disponible todavía."); return; }
+    p.prompt();
+    await p.userChoice;
+    installState.deferredPrompt = null;
+    $("btnInstallApp").classList.add("hidden");
+  });
 
-  window.openEditor = openEditor;
-  window.openSnakeAndTab = openSnakeAndTab;
-  window.deleteSnake = deleteSnake;
-  window.duplicateSnake = duplicateSnake;
-  window.moveSnakeUp = moveSnakeUp;
-  window.moveSnakeDown = moveSnakeDown;
-  window.updCh = updCh;
-  window.updRet = updRet;
-  window.setChannelFail = setChannelFail;
-  window.setReturnFail = setReturnFail;
-  window.startFieldEdit = startFieldEdit;
+  window.addEventListener("appinstalled", ()=>{
+    $("btnInstallApp").classList.add("hidden");
+  });
 
+  function bind(){
+    $("btnNewShow").addEventListener("click", ()=>{ enterApp(); });
+    $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
+    $("btnLoadFile").addEventListener("click", loadFileFromWelcome);
+
+    $("saveShowMeta").addEventListener("click", saveShowMeta);
+    $("createSnake").addEventListener("click", createSnake);
+    $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
+    $("saveStagepatch").addEventListener("click", saveStagepatchFile);
+    $("importStagepatch").addEventListener("click", importStagepatchFile);
+    $("clearAll").addEventListener("click", clearAll);
+    $("printBtn").addEventListener("click", printNow);
+    $("quickPrint").addEventListener("click", printNow);
+    $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
+    $("closeEditor").addEventListener("click", closeEditor);
+    $("tabInputs").addEventListener("click", ()=>setTab("inputs"));
+    $("tabOutputs").addEventListener("click", ()=>setTab("outputs"));
+    $("autoDestBtn").addEventListener("click", autoDestInputs);
+    $("edName").addEventListener("change", saveEditorMeta);
+    $("edZone").addEventListener("change", saveEditorMeta);
+    $("edColor").addEventListener("change", saveEditorMeta);
+
+    $("toggleReadMode").addEventListener("click", toggleMode);
+    $("sheetSnakeFilter").addEventListener("change", renderSheetView);
+    $("sheetPrintBtn").addEventListener("click", ()=>window.print());
+
+    $("printMode").addEventListener("change", ()=>{
+      $("printSnakeSelect").disabled = $("printMode").value !== "one";
+    });
+
+    $("undoBtn").addEventListener("click", undo);
+    $("redoBtn").addEventListener("click", redo);
+
+    document.addEventListener("keydown", (e)=>{
+      if(e.key === "Escape" && $("editor").classList.contains("open")) closeEditor();
+      if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
+      if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
+    });
+  }
+
+  normalize();
+  bind();
+  refreshShowInputs();
+  updateShowBadge();
+  renderList();
+  renderSearchResults();
+  refreshPrintSnakeSelect();
+  refreshDatalists();
+  refreshSheetFilter();
+  loadModePref();
+  renderSheetView();
+  updateUndoRedoButtons();
   refreshWelcomeLastInfo();
   setInterval(autosaveNow, 10000);
-// ===== Back button handling (Android PWA) - cerrar UI + doble atrás =====
-let backArmedUntil = 0;
 
-function pushAppState(tag = "app") {
-  try { history.pushState({ appState: tag }, "", location.href); } catch {}
-}
+  // ===== Rider PDF (IndexedDB) =====
+  const RIDER_DB_NAME = "barstage_rider_db";
+  const RIDER_STORE = "files";
+  const RIDER_KEY = "current_rider_pdf";
+  let riderObjectURL = null;
 
-function showBackToast(msg = "Pulsa atrás otra vez para salir") {
-  let t = document.getElementById("backToast");
-  if (!t) {
-    t = document.createElement("div");
-    t.id = "backToast";
-    Object.assign(t.style, {
-      position: "fixed", left: "50%", bottom: "22px", transform: "translateX(-50%)",
-      background: "rgba(10,16,32,.95)", color: "#eef3ff", border: "1px solid #3b4f88",
-      borderRadius: "999px", padding: "8px 14px", fontSize: "13px", zIndex: "9999",
-      boxShadow: "0 8px 24px rgba(0,0,0,.35)", opacity: "0", transition: "opacity .18s ease"
+  function openRiderDB(){
+    return new Promise((resolve, reject)=>{
+      const req = indexedDB.open(RIDER_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if(!db.objectStoreNames.contains(RIDER_STORE)){
+          db.createObjectStore(RIDER_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
     });
-    document.body.appendChild(t);
-  }
-  t.textContent = msg;
-  t.style.opacity = "1";
-  clearTimeout(t._hideTimer);
-  t._hideTimer = setTimeout(() => { t.style.opacity = "0"; }, 900);
-}
-
-// Entrada inicial para evitar cierre inmediato
-pushAppState("root");
-
-window.addEventListener("popstate", () => {
-  const now = Date.now();
-
-  // 1) Cerrar editor si está abierto
-  if ($("editor")?.classList.contains("open")) {
-    closeEditor();
-    pushAppState("after-editor-close");
-    backArmedUntil = 0;
-    return;
   }
 
-  // 2) Si hay búsqueda activa, limpiarla y ocultar resultados
-  const q = $("search");
-  if (q && q.value.trim() !== "") {
-    q.value = "";
-    renderList();
-    renderSearchResults();
-    pushAppState("after-clear-search");
-    backArmedUntil = 0;
-    return;
+  async function riderSet(blob){
+    const db = await openRiderDB();
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(RIDER_STORE, "readwrite");
+      tx.objectStore(RIDER_STORE).put(blob, RIDER_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
   }
 
-  // 3) Si está en modo lectura, volver a edición
-  if (viewMode === "read") {
-    toggleMode();
-    pushAppState("after-read-mode");
-    backArmedUntil = 0;
-    return;
+  async function riderGet(){
+    const db = await openRiderDB();
+    const val = await new Promise((resolve, reject)=>{
+      const tx = db.transaction(RIDER_STORE, "readonly");
+      const req = tx.objectStore(RIDER_STORE).get(RIDER_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    return val;
   }
 
-  // 4) Doble atrás para salir
-  if (now < backArmedUntil) {
-    // Permitir salida (no reinsertar estado)
-    return;
+  async function riderRemove(){
+    const db = await openRiderDB();
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(RIDER_STORE, "readwrite");
+      tx.objectStore(RIDER_STORE).delete(RIDER_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
   }
 
-  backArmedUntil = now + 1200; // 1.2s
-  showBackToast("Pulsa atrás otra vez para salir");
-  pushAppState("armed-exit");
-});
-  // ===== PWA install (Android) =====
-  let deferredInstallPrompt = null;
+  function setRiderStatus(msg){
+    const el = $("riderStatus");
+    if(el) el.textContent = msg;
+  }
 
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    const b = $("btnInstallApp");
-    if (b) b.classList.remove("hidden");
+  async function refreshRiderStatus(){
+    try{
+      const b = await riderGet();
+      if(b){
+        const kb = Math.round((b.size || 0)/1024);
+        setRiderStatus(`Rider: cargado (${kb} KB)`);
+      } else {
+        setRiderStatus("Rider: no cargado");
+      }
+    }catch{
+      setRiderStatus("Rider: error");
+    }
+  }
+
+  async function uploadRiderPDF(){
+    const i = document.createElement("input");
+    i.type = "file";
+    i.accept = "application/pdf,.pdf";
+    i.onchange = async ()=>{
+      const f = i.files?.[0];
+      if(!f) return;
+      if(f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")){
+        alert("Selecciona un archivo PDF válido.");
+        return;
+      }
+      try{
+        await riderSet(f);
+        await refreshRiderStatus();
+        alert("Rider PDF cargado correctamente.");
+      }catch(e){
+        alert("No se pudo guardar el Rider: " + (e?.message || e));
+      }
+    };
+    i.click();
+  }
+
+  async function openRiderViewer(){
+    try{
+      const b = await riderGet();
+      if(!b){
+        alert("No hay Rider cargado. Pulsa 'Cargar Rider PDF'.");
+        return;
+      }
+      if(riderObjectURL) URL.revokeObjectURL(riderObjectURL);
+      riderObjectURL = URL.createObjectURL(b);
+      $("riderFrame").src = riderObjectURL;
+      $("riderModal").classList.add("open");
+    }catch(e){
+      alert("No se pudo abrir el Rider: " + (e?.message || e));
+    }
+  }
+
+  function closeRiderViewer(){
+    $("riderModal").classList.remove("open");
+    $("riderFrame").src = "about:blank";
+    if(riderObjectURL){
+      URL.revokeObjectURL(riderObjectURL);
+      riderObjectURL = null;
+    }
+  }
+
+  async function removeRiderPDF(){
+    if(!confirm("¿Quitar Rider guardado?")) return;
+    try{
+      await riderRemove();
+      closeRiderViewer();
+      await refreshRiderStatus();
+      alert("Rider eliminado.");
+    }catch(e){
+      alert("No se pudo eliminar: " + (e?.message || e));
+    }
+  }
+
+  $("uploadRiderBtn")?.addEventListener("click", uploadRiderPDF);
+  $("viewRiderBtn")?.addEventListener("click", openRiderViewer);
+  $("removeRiderBtn")?.addEventListener("click", removeRiderPDF);
+  $("closeRiderBtn")?.addEventListener("click", closeRiderViewer);
+
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && $("riderModal")?.classList.contains("open")){
+      closeRiderViewer();
+    }
   });
 
-  const installBtn = $("btnInstallApp");
-  if (installBtn){
-    installBtn.addEventListener("click", async () => {
-      if(!deferredInstallPrompt) return;
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice;
-      deferredInstallPrompt = null;
-      installBtn.classList.add("hidden");
-    });
+  refreshRiderStatus();
+
+  // ===== Back button handling (Android PWA) - cerrar UI + doble atrás =====
+  let backArmedUntil = 0;
+
+  function pushAppState(tag = "app") {
+    try { history.pushState({ appState: tag }, "", location.href); } catch {}
   }
 
-  window.addEventListener("appinstalled", () => {
-    const b = $("btnInstallApp");
-    if (b) b.classList.add("hidden");
+  function showBackToast(msg = "Pulsa atrás otra vez para salir") {
+    let t = document.getElementById("backToast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "backToast";
+      Object.assign(t.style, {
+        position: "fixed", left: "50%", bottom: "22px", transform: "translateX(-50%)",
+        background: "rgba(10,16,32,.95)", color: "#eef3ff", border: "1px solid #3b4f88",
+        borderRadius: "999px", padding: "8px 14px", fontSize: "13px", zIndex: "9999",
+        boxShadow: "0 8px 24px rgba(0,0,0,.35)", opacity: "0", transition: "opacity .18s ease"
+      });
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = "1";
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => { t.style.opacity = "0"; }, 900);
+  }
+
+  pushAppState("root");
+
+  window.addEventListener("popstate", () => {
+    const now = Date.now();
+
+    if ($("riderModal")?.classList.contains("open")) {
+      closeRiderViewer();
+      pushAppState("after-rider-close");
+      backArmedUntil = 0;
+      return;
+    }
+
+    if ($("editor")?.classList.contains("open")) {
+      closeEditor();
+      pushAppState("after-editor-close");
+      backArmedUntil = 0;
+      return;
+    }
+
+    const q = $("search");
+    if (q && q.value.trim() !== "") {
+      q.value = "";
+      renderList();
+      renderSearchResults();
+      pushAppState("after-clear-search");
+      backArmedUntil = 0;
+      return;
+    }
+
+    if (viewMode === "read") {
+      toggleMode();
+      pushAppState("after-read-mode");
+      backArmedUntil = 0;
+      return;
+    }
+
+    if (now < backArmedUntil) {
+      return;
+    }
+
+    backArmedUntil = now + 1200;
+    showBackToast("Pulsa atrás otra vez para salir");
+    pushAppState("armed-exit");
   });
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(console.error);
+      navigator.serviceWorker.register("./sw.js").then(() => {
+        console.log("SW registrado");
+      }).catch(console.error);
     });
   }
 </script>
