@@ -1226,7 +1226,75 @@
 
   refreshWelcomeLastInfo();
   setInterval(autosaveNow, 10000);
+// ===== Back button handling (Android PWA) - cerrar UI + doble atrás =====
+let backArmedUntil = 0;
 
+function pushAppState(tag = "app") {
+  try { history.pushState({ appState: tag }, "", location.href); } catch {}
+}
+
+function showBackToast(msg = "Pulsa atrás otra vez para salir") {
+  let t = document.getElementById("backToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "backToast";
+    Object.assign(t.style, {
+      position: "fixed", left: "50%", bottom: "22px", transform: "translateX(-50%)",
+      background: "rgba(10,16,32,.95)", color: "#eef3ff", border: "1px solid #3b4f88",
+      borderRadius: "999px", padding: "8px 14px", fontSize: "13px", zIndex: "9999",
+      boxShadow: "0 8px 24px rgba(0,0,0,.35)", opacity: "0", transition: "opacity .18s ease"
+    });
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => { t.style.opacity = "0"; }, 900);
+}
+
+// Entrada inicial para evitar cierre inmediato
+pushAppState("root");
+
+window.addEventListener("popstate", () => {
+  const now = Date.now();
+
+  // 1) Cerrar editor si está abierto
+  if ($("editor")?.classList.contains("open")) {
+    closeEditor();
+    pushAppState("after-editor-close");
+    backArmedUntil = 0;
+    return;
+  }
+
+  // 2) Si hay búsqueda activa, limpiarla y ocultar resultados
+  const q = $("search");
+  if (q && q.value.trim() !== "") {
+    q.value = "";
+    renderList();
+    renderSearchResults();
+    pushAppState("after-clear-search");
+    backArmedUntil = 0;
+    return;
+  }
+
+  // 3) Si está en modo lectura, volver a edición
+  if (viewMode === "read") {
+    toggleMode();
+    pushAppState("after-read-mode");
+    backArmedUntil = 0;
+    return;
+  }
+
+  // 4) Doble atrás para salir
+  if (now < backArmedUntil) {
+    // Permitir salida (no reinsertar estado)
+    return;
+  }
+
+  backArmedUntil = now + 1200; // 1.2s
+  showBackToast("Pulsa atrás otra vez para salir");
+  pushAppState("armed-exit");
+});
   // ===== PWA install (Android) =====
   let deferredInstallPrompt = null;
 
