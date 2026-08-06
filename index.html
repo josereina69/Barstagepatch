@@ -887,12 +887,35 @@
   }
 
   function autoDestInputs(){
-    if(isReadMode()) return;
-    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
-    snapshot("auto destination");
-    s.channels.forEach((c,i)=> c.destination = `Rack Input ${String(i+1).padStart(2,'0')}`);
-    renderEditorBody(); renderList(); renderSearchResults(); renderSheetView();
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId); 
+  if(!s) return;
+
+  const patchName = prompt("Nombre del patch/destino base:", "RIO IN");
+  if(patchName === null) return;
+
+  const start = Number(prompt("Canal de inicio (1.." + s.channels.length + "):", "1"));
+  if(!Number.isInteger(start) || start < 1 || start > s.channels.length){
+    alert("Canal de inicio inválido.");
+    return;
   }
+
+  const end = Number(prompt("Canal final (" + start + ".." + s.channels.length + "):", String(s.channels.length)));
+  if(!Number.isInteger(end) || end < start || end > s.channels.length){
+    alert("Canal final inválido.");
+    return;
+  }
+
+  snapshot("auto destination range");
+  for(let ch = start; ch <= end; ch++){
+    s.channels[ch-1].destination = `${patchName} ${String(ch).padStart(2,'0')}`;
+  }
+
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  renderSheetView();
+}
 
   function saveEditorMeta(){
     if(isReadMode()) return;
