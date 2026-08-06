@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Barstage Patch</title>
 
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1020">
+
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="alternate icon" href="icons/icon.svg">
   <link rel="apple-touch-icon" href="icons/icon.svg">
@@ -269,6 +272,7 @@
       <button id="btnNewShow" class="btn">✨ Nuevo show</button>
       <button id="btnLoadLast" class="btn-ghost">↺ Cargar último (backup local)</button>
       <button id="btnLoadFile">📂 Cargar archivo (.stagepatch)</button>
+      <button id="btnInstallApp" class="btn-ghost hidden">📲 Instalar app</button>
     </div>
 
     <div id="lastInfo" class="welcome-foot">Buscando último backup...</div>
@@ -290,7 +294,7 @@
       </div>
     </div>
   </div>
-    <div class="edit-only">
+  <div class="edit-only">
     <div class="card">
       <div class="grid grid-3">
         <div><label>Show / Gira</label><input id="showName" placeholder="Ej: Tour 2026 CDMX"></div>
@@ -1222,6 +1226,38 @@
 
   refreshWelcomeLastInfo();
   setInterval(autosaveNow, 10000);
+
+  // ===== PWA install (Android) =====
+  let deferredInstallPrompt = null;
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const b = $("btnInstallApp");
+    if (b) b.classList.remove("hidden");
+  });
+
+  const installBtn = $("btnInstallApp");
+  if (installBtn){
+    installBtn.addEventListener("click", async () => {
+      if(!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      installBtn.classList.add("hidden");
+    });
+  }
+
+  window.addEventListener("appinstalled", () => {
+    const b = $("btnInstallApp");
+    if (b) b.classList.add("hidden");
+  });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(console.error);
+    });
+  }
 </script>
 </body>
 </html>
