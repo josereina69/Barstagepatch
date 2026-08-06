@@ -1415,15 +1415,6 @@ async function saveStagepatchFile(){
       a.remove();
 
       // fallback descarga por si no abre visor
-      setTimeout(()=>{
-        const d = document.createElement("a");
-        d.href = riderObjectURL;
-        d.download = "rider.pdf";
-        document.body.appendChild(d);
-        d.click();
-        d.remove();
-      }, 900);
-
       // no abrimos modal en móvil
       return;
     }
