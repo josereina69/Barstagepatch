@@ -1391,20 +1391,45 @@ async function saveStagepatchFile(){
   }
 
   async function openRiderViewer(){
+  try{
+    const item = await idbGet("riderPDF");
+    if (!item || !item.data){
+      alert("No hay Rider cargado.");
+      return;
+    }
+
+    const blob = item.data instanceof Blob
+      ? item.data
+      : new Blob([item.data], { type: "application/pdf" });
+
+    const blobUrl = URL.createObjectURL(blob);
+
+    // 1) Intento directo
+    let win = window.open(blobUrl, "_blank", "noopener,noreferrer");
+
+    // 2) Fallback móvil: anchor click
+    if (!win) {
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+    }
+
+    // 3) Último fallback: descarga
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+  }catch(err){
+    console.error(err);
+    alert("No se pudo abrir el PDF. Intentando descargar...");
     try{
-      const b = await riderGet();
-      if(!b){
-        alert("No hay Rider cargado. Pulsa 'Cargar Rider PDF'.");
-        return;
-      }
-      if(riderObjectURL) URL.revokeObjectURL(riderObjectURL);
-      riderObjectURL = URL.createObjectURL(b);
-      $("riderFrame").src = riderObjectURL;
-      $("riderModal").classList.add("open");
+      const item = await idbGet("riderPDF");
+      if (item?.data) downloadFile("rider.pdf", item.data, "application/pdf");
     }catch(e){
-      alert("No se pudo abrir el Rider: " + (e?.message || e));
+      console.error(e);
+      alert("Error con el Rider PDF.");
     }
   }
+}
 
   function closeRiderViewer(){
     $("riderModal").classList.remove("open");
