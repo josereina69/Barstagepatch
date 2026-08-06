@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StagePatch Pro</title>
+  <title>Barstage Patch</title>
 
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon180.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="alternate icon" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
 
   <style>
     :root{
@@ -19,6 +19,26 @@
       margin:0; background:linear-gradient(180deg,#080d1c,#0b1020);
       color:var(--txt); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
     }
+
+    .welcome{
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+    }
+    .welcome-card{
+      width:min(680px, 100%); background:rgba(18,26,51,.96); border:1px solid var(--line);
+      border-radius:18px; padding:20px; text-align:center; box-shadow:0 18px 50px rgba(0,0,0,.35);
+    }
+    .welcome-logo{
+      width:min(220px, 55vw); height:min(220px, 55vw); border-radius:24px;
+      border:1px solid #2e3b6b; box-shadow:0 12px 34px rgba(0,0,0,.35);
+      object-fit:cover; display:block; margin:0 auto 14px auto;
+    }
+    .welcome-title{margin:0; font-size:1.8rem; letter-spacing:.3px}
+    .welcome-sub{margin-top:6px; color:var(--muted); font-size:.96rem}
+    .welcome-actions{margin-top:16px; display:grid; gap:10px}
+    .welcome-actions button{padding:13px}
+    .welcome-foot{margin-top:10px; color:var(--muted); font-size:.82rem}
+    .hidden{display:none !important}
+
     .app{max-width:1080px; margin:0 auto; padding:12px 12px 90px}
     .card{
       background:rgba(18,26,51,.96); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px;
@@ -202,7 +222,7 @@
     .print-only{display:none}
 
     @media print{
-      .no-print,.editor,.sticky-bottom,#searchResults{display:none !important}
+      .no-print,.editor,.sticky-bottom,#searchResults,#welcomeScreen{display:none !important}
       .print-only{display:block !important}
       body{background:#fff;color:#000;font-size:11px}
       .app{max-width:none;padding:0}
@@ -238,13 +258,30 @@
   </style>
 </head>
 <body>
-<div class="app mode-edit" id="appRoot">
+
+<section id="welcomeScreen" class="welcome">
+  <div class="welcome-card">
+    <img src="icons/icon.svg" alt="Barstage Patch" class="welcome-logo">
+    <h1 class="welcome-title">Barstage Patch</h1>
+    <div class="welcome-sub">Organiza tus mangueras de escenario de forma rápida y clara.</div>
+
+    <div class="welcome-actions">
+      <button id="btnNewShow" class="btn">✨ Nuevo show</button>
+      <button id="btnLoadLast" class="btn-ghost">↺ Cargar último (backup local)</button>
+      <button id="btnLoadFile">📂 Cargar archivo (.stagepatch)</button>
+    </div>
+
+    <div id="lastInfo" class="welcome-foot">Buscando último backup...</div>
+  </div>
+</section>
+
+<div class="app mode-edit hidden" id="appRoot">
   <div class="card no-print">
     <div class="brand-wrap">
       <div class="brand-left">
-        <img src="icons/icon180.png" alt="StagePatch Pro" class="brand-logo">
+        <img src="icons/icon.svg" alt="Barstage Patch" class="brand-logo">
         <div>
-          <h1 class="brand-title">StagePatch Pro</h1>
+          <h1 class="brand-title">Barstage Patch</h1>
           <div class="brand-sub">Organiza tus mangueras de escenario.</div>
         </div>
       </div>
@@ -253,8 +290,7 @@
       </div>
     </div>
   </div>
-
-  <div class="edit-only">
+    <div class="edit-only">
     <div class="card">
       <div class="grid grid-3">
         <div><label>Show / Gira</label><input id="showName" placeholder="Ej: Tour 2026 CDMX"></div>
@@ -449,17 +485,29 @@
     }
   }
 
-  function tryRestoreBackup(){
+  function readBackup(){
     try{
       const raw = localStorage.getItem(LS_BACKUP_KEY);
-      if(!raw) return;
+      if(!raw) return null;
       const data = JSON.parse(raw);
-      if(data?.payload?.snakes && Array.isArray(data.payload.snakes) && data.payload.snakes.length){
-        if(confirm("Se encontró un backup local automático. ¿Quieres restaurarlo?")){
-          appData = { show: data.payload.show || {name:"",artist:"",date:""}, snakes: data.payload.snakes || [] };
-        }
-      }
-    }catch{}
+      if(!data?.payload || !Array.isArray(data.payload.snakes)) return null;
+      return data;
+    }catch{ return null; }
+  }
+
+  function refreshWelcomeLastInfo(){
+    const data = readBackup();
+    const el = $("lastInfo");
+    if(!data){
+      el.textContent = "No hay backup local todavía.";
+      $("btnLoadLast").disabled = true;
+      return;
+    }
+    $("btnLoadLast").disabled = false;
+    const s = data.payload?.show || {};
+    const snakesN = data.payload?.snakes?.length || 0;
+    const when = data.savedAt ? new Date(data.savedAt).toLocaleString() : "fecha desconocida";
+    el.textContent = `Último: ${s.name || "Sin nombre"} · ${snakesN} subsnakes · ${when}`;
   }
 
   function loadModePref(){
@@ -835,7 +883,7 @@
   }
 
   function buildPortableStagepatchObject(){
-    return { app: "StagePatch Pro", format: "stagepatch", schemaVersion: STAGEPATCH_SCHEMA_VERSION, exportedAt: new Date().toISOString(), payload: appData };
+    return { app: "Barstage Patch", format: "stagepatch", schemaVersion: STAGEPATCH_SCHEMA_VERSION, exportedAt: new Date().toISOString(), payload: appData };
   }
 
   function exportStagepatch(){
@@ -843,7 +891,7 @@
     const blob = new Blob([JSON.stringify(buildPortableStagepatchObject(), null, 2)], { type: STAGEPATCH_MIME });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `stagepatch_${(appData.show.name || "show").replace(/[^\w\-]+/g,"_")}${STAGEPATCH_EXT}`;
+    a.download = `barstage_patch_${(appData.show.name || "show").replace(/[^\w\-]+/g,"_")}${STAGEPATCH_EXT}`;
     a.click(); URL.revokeObjectURL(a.href);
   }
 
@@ -865,6 +913,28 @@
         normalize(); refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
         alert("Archivo importado correctamente.");
       }catch(e){ alert("Error importando .stagepatch: " + e.message); }
+    };
+    i.click();
+  }
+
+  function importStagepatchFromWelcome(){
+    const i = document.createElement("input");
+    i.type = "file";
+    i.accept = `${STAGEPATCH_EXT},${STAGEPATCH_MIME},application/json`;
+    i.onchange = async ()=>{
+      const f = i.files?.[0]; if(!f) return;
+      try{
+        const data = JSON.parse(await f.text());
+        if(data?.format === "stagepatch" && data?.payload){
+          appData = { show: data.payload.show || {name:"",artist:"",date:""}, snakes: data.payload.snakes || [] };
+        } else if (data && Array.isArray(data.snakes)) {
+          appData = { show: data.show || {name:"",artist:"",date:""}, snakes: data.snakes || [] };
+        } else throw new Error("Archivo no válido de StagePatch.");
+        normalize();
+        enterApp();
+      }catch(e){
+        alert("Error importando .stagepatch: " + e.message);
+      }
     };
     i.click();
   }
@@ -1066,6 +1136,46 @@
     `).join("");
   }
 
+  function enterApp(){
+    $("welcomeScreen").classList.add("hidden");
+    $("appRoot").classList.remove("hidden");
+
+    normalize();
+    refreshShowInputs();
+    updateShowBadge();
+    renderList();
+    renderSearchResults();
+    refreshPrintSnakeSelect();
+    refreshDatalists();
+    refreshSheetFilter();
+    renderSheetView();
+    loadModePref();
+    buildPrintView();
+    updateUndoRedoButtons();
+    autosaveNow();
+  }
+
+  function startNewShow(){
+    appData = { show:{name:"",artist:"",date:""}, snakes:[] };
+    undoStack = []; redoStack = [];
+    enterApp();
+  }
+
+  function loadLastBackupAndEnter(){
+    const data = readBackup();
+    if(!data){ alert("No hay backup local disponible."); return; }
+    appData = {
+      show: data.payload.show || {name:"",artist:"",date:""},
+      snakes: data.payload.snakes || []
+    };
+    undoStack = []; redoStack = [];
+    enterApp();
+  }
+
+  $("btnNewShow").addEventListener("click", startNewShow);
+  $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
+  $("btnLoadFile").addEventListener("click", importStagepatchFromWelcome);
+
   $("saveShowMeta").addEventListener("click", saveShowMeta);
   $("createSnake").addEventListener("click", createSnake);
   $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
@@ -1110,22 +1220,8 @@
   window.setReturnFail = setReturnFail;
   window.startFieldEdit = startFieldEdit;
 
-  tryRestoreBackup();
-  normalize();
-  refreshShowInputs();
-  updateShowBadge();
-  renderList();
-  renderSearchResults();
-  refreshPrintSnakeSelect();
-  refreshDatalists();
-  refreshSheetFilter();
-  renderSheetView();
-  loadModePref();
-  buildPrintView();
-  updateUndoRedoButtons();
-
+  refreshWelcomeLastInfo();
   setInterval(autosaveNow, 10000);
-  autosaveNow();
 </script>
 </body>
 </html>
