@@ -1391,20 +1391,51 @@ async function saveStagepatchFile(){
   }
 
   async function openRiderViewer(){
-    try{
-      const b = await riderGet();
-      if(!b){
-        alert("No hay Rider cargado. Pulsa 'Cargar Rider PDF'.");
-        return;
-      }
-      if(riderObjectURL) URL.revokeObjectURL(riderObjectURL);
-      riderObjectURL = URL.createObjectURL(b);
-      $("riderFrame").src = riderObjectURL;
-      $("riderModal").classList.add("open");
-    }catch(e){
-      alert("No se pudo abrir el Rider: " + (e?.message || e));
+  try{
+    const b = await riderGet();
+    if(!b){
+      alert("No hay Rider cargado. Pulsa 'Cargar Rider PDF'.");
+      return;
     }
+
+    // Limpia URL previa
+    if(riderObjectURL) URL.revokeObjectURL(riderObjectURL);
+    riderObjectURL = URL.createObjectURL(b);
+
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+    if(isMobile){
+      // Móvil: abrir fuera del iframe (más compatible)
+      const a = document.createElement("a");
+      a.href = riderObjectURL;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // fallback descarga por si no abre visor
+      setTimeout(()=>{
+        const d = document.createElement("a");
+        d.href = riderObjectURL;
+        d.download = "rider.pdf";
+        document.body.appendChild(d);
+        d.click();
+        d.remove();
+      }, 900);
+
+      // no abrimos modal en móvil
+      return;
+    }
+
+    // PC: mantener tu modal con iframe
+    $("riderFrame").src = riderObjectURL;
+    $("riderModal").classList.add("open");
+
+  }catch(e){
+    alert("No se pudo abrir el Rider: " + (e?.message || e));
   }
+}
 
   function closeRiderViewer(){
     $("riderModal").classList.remove("open");
