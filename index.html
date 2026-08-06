@@ -73,7 +73,19 @@
     .snake-item{
       border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px;
       background:#101831;
+      cursor: grab;
+      transition: transform .12s ease, opacity .12s ease, box-shadow .12s ease;
     }
+    .snake-item:active{ cursor: grabbing; }
+    .snake-item.dragging{
+      opacity:.55;
+      transform:scale(.995);
+      box-shadow:0 0 0 2px #4f8cff inset;
+    }
+    .snake-item.drop-target{
+      box-shadow:0 0 0 2px #22c55e inset;
+    }
+
     .snake-head{display:flex; align-items:center; gap:8px; justify-content:space-between;}
     .snake-title-wrap{display:flex; gap:8px; align-items:center; min-width:0}
     .dot{width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.4)}
@@ -110,6 +122,21 @@
       font-weight:700; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;
     }
     .small{font-size:.8rem; color:var(--muted)}
+
+    .patch-card.is-fail{
+      opacity:.62;
+      filter:grayscale(.35);
+      border-left:4px solid #64748b;
+    }
+
+    .fail-toggle{
+      display:flex; align-items:center; gap:8px; font-size:.82rem; color:#dbe4ff;
+      padding:4px 8px; border:1px solid #3b4f88; border-radius:999px; background:#152247;
+      user-select:none;
+    }
+    .fail-toggle input[type="checkbox"]{
+      width:16px; height:16px; margin:0; accent-color:#ef4444; cursor:pointer;
+    }
 
     .result-item{
       border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; background:#101a38;
@@ -154,6 +181,12 @@
     .mono{font-variant-numeric:tabular-nums}
     .muted-x{color:#9fb0da}
 
+    .sheet-row-fail td{
+      background:#3a1116 !important;
+      color:#ffdede !important;
+      font-weight:700;
+    }
+
     .mode-reading .edit-only{display:none !important}
     .mode-reading .sheet-wrap{display:block}
     .mode-reading .sticky-bottom{display:none}
@@ -193,6 +226,14 @@
       .print-table thead{display:table-header-group}
       .print-table tr{page-break-inside:avoid;break-inside:avoid;}
       .muted{color:#444}
+
+      .print-row-fail td{
+        background:#ffd6d6 !important;
+        color:#7f1d1d !important;
+        font-weight:700;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
   </style>
 </head>
@@ -346,6 +387,7 @@
   let undoStack = [];
   let redoStack = [];
   let historyMuted = false;
+  let dragSnakeId = null;
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" })[m]);
@@ -452,10 +494,12 @@
     updateUndoRedoButtons();
   }
 
-  function makeChannels(n){ return Array.from({length:n}, (_,i)=>({ channel:i+1, source:"", destination:"", micType:"", notes:"" })); }
+  function makeChannels(n){
+    return Array.from({length:n}, (_,i)=>({ channel:i+1, source:"", destination:"", micType:"", notes:"", fail:false }));
+  }
   function makeReturns(count=0){
     const c = clampR(count);
-    return RETURN_LABELS.slice(0,c).map(l=>({label:l, source:"", destination:"", notes:""}));
+    return RETURN_LABELS.slice(0,c).map(l=>({label:l, source:"", destination:"", notes:"", fail:false}));
   }
 
   function normalize(){
@@ -466,12 +510,23 @@
       const returnsCount = clampR(s.returnsCount);
       const returnsOld = Array.isArray(s.returns) ? s.returns : [];
       const returns = RETURN_LABELS.slice(0, returnsCount).map((l, i)=>({
-        label:l, source: returnsOld[i]?.source || "", destination: returnsOld[i]?.destination || "", notes: returnsOld[i]?.notes || ""
+        label:l,
+        source: returnsOld[i]?.source || "",
+        destination: returnsOld[i]?.destination || "",
+        notes: returnsOld[i]?.notes || "",
+        fail: !!returnsOld[i]?.fail
       }));
       return {
         ...s,
         channelsCount,
-        channels: channels.map((c,i)=>({ channel: c.channel || i+1, source:c.source||"", destination:c.destination||"", micType:c.micType||"", notes:c.notes||"" })),
+        channels: channels.map((c,i)=>({
+          channel: c.channel || i+1,
+          source:c.source||"",
+          destination:c.destination||"",
+          micType:c.micType||"",
+          notes:c.notes||"",
+          fail: !!c.fail
+        })),
         returnsCount,
         returns
       };
@@ -554,20 +609,77 @@
     renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshSheetFilter(); renderSheetView();
   }
 
+  function bindDragAndDrop(){
+    const container = $("snakesList");
+    const items = [...container.querySelectorAll(".snake-item[draggable='true']")];
+
+    items.forEach(item=>{
+      item.addEventListener("dragstart", e=>{
+        dragSnakeId = item.dataset.id;
+        item.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", dragSnakeId);
+      });
+
+      item.addEventListener("dragend", ()=>{
+        item.classList.remove("dragging");
+        container.querySelectorAll(".snake-item").forEach(i=>i.classList.remove("drop-target"));
+        dragSnakeId = null;
+      });
+
+      item.addEventListener("dragover", e=>{
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        item.classList.add("drop-target");
+      });
+
+      item.addEventListener("dragleave", ()=> item.classList.remove("drop-target"));
+
+      item.addEventListener("drop", e=>{
+        e.preventDefault();
+        item.classList.remove("drop-target");
+        const targetId = item.dataset.id;
+        const sourceId = dragSnakeId || e.dataTransfer.getData("text/plain");
+        if(!sourceId || !targetId || sourceId===targetId) return;
+        reorderSnakeByIds(sourceId, targetId);
+      });
+    });
+  }
+
+  function reorderSnakeByIds(sourceId, targetId){
+    if(isReadMode()) return;
+    const from = appData.snakes.findIndex(s=>s.id===sourceId);
+    const to = appData.snakes.findIndex(s=>s.id===targetId);
+    if(from < 0 || to < 0 || from === to) return;
+    snapshot("drag reorder snakes");
+    const [moved] = appData.snakes.splice(from,1);
+    appData.snakes.splice(to,0,moved);
+    renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshSheetFilter(); renderSheetView();
+  }
+
   function renderList(){
     const q = $("search").value.trim().toLowerCase();
     const el = $("snakesList"); el.innerHTML = "";
     const list = snakes().filter(s=>{
       if(!q) return true;
-      const txt = [s.name,s.zone,s.channelsCount,s.returnsCount,...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes]),...(s.returns||[]).flatMap(r=>[r.label,r.source,r.destination,r.notes])].join(" ").toLowerCase();
+      const txt = [
+        s.name,s.zone,s.channelsCount,s.returnsCount,
+        ...s.channels.flatMap(c=>[c.source,c.destination,c.micType,c.notes, c.fail ? "falla" : "ok"]),
+        ...(s.returns||[]).flatMap(r=>[r.label,r.source,r.destination,r.notes, r.fail ? "falla" : "ok"])
+      ].join(" ").toLowerCase();
       return txt.includes(q);
     });
 
     if(!list.length){ el.innerHTML = `<div class="small">No hay subsnakes aún.</div>`; return; }
 
-    list.forEach((s, idx)=>{
+    list.forEach((s)=>{
+      const realIndex = appData.snakes.findIndex(x=>x.id===s.id);
       const item = document.createElement("div");
       item.className = "snake-item";
+      item.draggable = !isReadMode();
+      item.dataset.id = s.id;
+      item.dataset.index = String(realIndex);
+
       item.innerHTML = `
         <div class="snake-head">
           <div class="snake-title-wrap">
@@ -575,7 +687,7 @@
             <div>
               <div class="snake-title">${esc(s.name)}</div>
               <div class="snake-meta">
-                #${idx+1} · ${s.channelsCount} entradas + ${s.returnsCount} salidas ${s.zone ? "• " + esc(s.zone) : ""}
+                #${realIndex+1} · ${s.channelsCount} entradas + ${s.returnsCount} salidas ${s.zone ? "• " + esc(s.zone) : ""}
               </div>
             </div>
           </div>
@@ -589,6 +701,8 @@
         </div>`;
       el.appendChild(item);
     });
+
+    bindDragAndDrop();
   }
 
   function openEditor(id){
@@ -603,57 +717,16 @@
   function setTab(tab){ activeTab = tab; $("tabInputs").classList.toggle("active", tab==="inputs"); $("tabOutputs").classList.toggle("active", tab==="outputs"); renderEditorBody(); }
 
   function getSuggestions(){
-    const baseSource = [
-      "Kick In","Kick Out","Snare Top","Snare Bottom","Snare 2","Snare 3","Hi-Hat","Tom 1","Tom 2","Tom 3","Tom 4","Floor Tom",
-      "OH L","OH R","Ride","Crash L","Crash R","Pad L","Pad R","SPD-SX","Sample L","Sample R","Click",
-      "Bass DI","Bass Mic","Bass FX","Gtr L","Gtr R","Gtr Acústica DI","Gtr Acústica Mic","Guitarra Flamenca","Gtr Eléctrica SM57","Gtr Eléctrica e906","Gtr Eléctrica Xlr",
-      "Ukelele DI","Mandolina DI","Violín DI","Cello DI","Melodica",
-      "Keys L","Keys R","Piano L","Piano R","Key 2 L","Key 2 R","Piano 2 L","Piano 2 R","Synth 1 L","Synth 1 R","Synth 2 L","Synth 2 R",
-      "Tracks L","Tracks R","Playback L","Playback R","Ableton L","Ableton R","Sampler L","Sampler R",
-      "Voz Lead","Voz Lead 2","Coro 1","Coro 2","Coro 3","Coro 4","Talkback FOH","Talkback MON","MC","Narrador","Shout","Backline",
-      "Ambiente L","Ambiente R","Audience L","Audience R","Room L","Room R",
-      "Trompeta 1","Trompeta 2","Trombón 1","Trombón 2","Saxo Alto","Saxo Tenor","Saxo Barítono","Clarinete","Flauta","Oboe","Acordeon",
-      "DJ L","DJ R","Laptop L","Laptop R","Video L","Video R","Spare 1","Spare 2","Spare 3","Spare 4"
-    ];
-
-    const baseDest = [
-      "Rack A - Input 01","Rack A - Input 02","Rack A - Input 03","Rack A - Input 04",
-      "Rack A - Input 05","Rack A - Input 06","Rack A - Input 07","Rack A - Input 08",
-      "Rack A - Input 09","Rack A - Input 10","Rack A - Input 11","Rack A - Input 12",
-      "Rack B - Input 01","Rack B - Input 02","Rack B - Input 03","Rack B - Input 04",
-      "Rack B - Input 05","Rack B - Input 06","Rack B - Input 07","Rack B - Input 08",
-      "FOH CH 01","FOH CH 02","FOH CH 03","FOH CH 04","FOH CH 05","FOH CH 06",
-      "MON CH 01","MON CH 02","MON CH 03","MON CH 04","MON CH 05","MON CH 06",
-      "IEM Lead L","IEM Lead R","IEM Coros L","IEM Coros R","IEM Batería L","IEM Batería R",
-      "Wedge 1","Wedge 2","Wedge 3","Wedge 4","Drum Fill","SideFill L","SideFill R",
-      "PA L","PA R","Sub Mono","FrontFill","Delay L","Delay R",
-      "Matrix 1","Matrix 2","Matrix 3","Matrix 4","Broadcast L","Broadcast R","Recording L","Recording R"
-    ];
-
-    const baseMic = [
-      "SM58","SM57","Beta58A","Beta57A","e835","e935","e945","MD421","RE20","M88",
-      "Beta52","D112","e902","e904","e905","e906","e609",
-      "C214","C414","KSM32","NT5","KM184","P170","P420",
-      "R121","M160",
-      "DI Activa","DI Pasiva","Radial J48","Radial ProDI","BSS AR-133","Wireless HH","Wireless Beltpack","Line In"
-    ];
-
-    const baseNotes = [
-      "Phantom ON","Phantom OFF","Pad -10dB","Pad -20dB","HPF ON","HPF OFF",
-      "Invertir fase","Revisar polaridad","Gate suave","Comp ligera","Sin compresión",
-      "Sin EQ","EQ correctiva","No enviar a PA","Solo monitores","Solo grabación",
-      "Canal de respaldo","Canal compartido","Checar clip","Ganancia baja","Ganancia media","Ganancia alta",
-      "Atento feedback","Micrófono inalámbrico","Requiere soporte","Cable corto","Cable largo",
-      "Mute al inicio","Abrir en canción 2","Abrir en canción 5","Talkback solo MON"
-    ];
+    const baseSource = ["Kick In","Kick Out","Snare Top","Snare Bottom","Hi-Hat","Tom 1","Tom 2","OH L","OH R","Bass DI","Gtr L","Gtr R","Keys L","Keys R","Tracks L","Tracks R","Voz Lead","Coro 1","Talkback MON"];
+    const baseDest = ["Rack A - Input 01","Rack A - Input 02","Rack B - Input 01","FOH CH 01","MON CH 01","IEM Lead L","PA L","PA R","Matrix 1","Recording L"];
+    const baseMic = ["SM58","SM57","Beta58A","MD421","RE20","D112","C414","DI Activa","DI Pasiva","Wireless HH"];
+    const baseNotes = ["Phantom ON","Pad -10dB","HPF ON","Invertir fase","Canal de respaldo","Checar clip","Mute al inicio"];
 
     const src = new Set(baseSource), dst = new Set(baseDest), mic = new Set(baseMic), nts = new Set(baseNotes);
-
     snakes().forEach(s=>{
       (s.channels||[]).forEach(c=>{ if(c.source) src.add(c.source); if(c.destination) dst.add(c.destination); if(c.micType) mic.add(c.micType); if(c.notes) nts.add(c.notes); });
       (s.returns||[]).forEach(r=>{ if(r.source) src.add(r.source); if(r.destination) dst.add(r.destination); if(r.notes) nts.add(r.notes); });
     });
-
     return { source:[...src].slice(0,1000), destination:[...dst].slice(0,1000), mic:[...mic].slice(0,1000), notes:[...nts].slice(0,1000) };
   }
 
@@ -677,14 +750,32 @@
     if(!fieldEditArmed){ snapshot("field edit"); fieldEditArmed = true; setTimeout(()=>fieldEditArmed=false, 700); }
   }
 
+  function setChannelFail(idx, val){
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
+    s.channels[idx].fail = !!val;
+    renderEditorBody(); renderSearchResults(); renderSheetView();
+  }
+
+  function setReturnFail(idx, val){
+    const s = snakes().find(x=>x.id===editorSnakeId); if(!s || !(s.returns||[])[idx]) return;
+    s.returns[idx].fail = !!val;
+    renderEditorBody(); renderSearchResults(); renderSheetView();
+  }
+
   function renderEditorBody(){
     const s = snakes().find(x=>x.id===editorSnakeId); if(!s) return;
     const body = $("editorBody"); refreshDatalists();
 
     if(activeTab==="inputs"){
       body.innerHTML = s.channels.map((c,idx)=>`
-        <div class="patch-card">
-          <div class="patch-title">CH ${c.channel} <span class="small">Entrada</span></div>
+        <div class="patch-card ${c.fail ? 'is-fail' : ''}">
+          <div class="patch-title">
+            <span>CH ${c.channel} <span class="small">Entrada</span></span>
+            <label class="fail-toggle">
+              <input type="checkbox" ${c.fail ? "checked" : ""} onchange="setChannelFail(${idx}, this.checked)">
+              Falla
+            </label>
+          </div>
           <div class="grid grid-2">
             <div><label>Fuente</label><input list="dl-source" value="${esc(c.source)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'source',this.value)"></div>
             <div><label>Destino</label><input list="dl-destination" value="${esc(c.destination)}" onfocus="startFieldEdit()" oninput="updCh(${idx},'destination',this.value)"></div>
@@ -699,8 +790,14 @@
       }
 
       body.innerHTML = s.returns.map((r,idx)=>`
-        <div class="patch-card">
-          <div class="patch-title">OUT ${r.label} <span class="small">Salida</span></div>
+        <div class="patch-card ${r.fail ? 'is-fail' : ''}">
+          <div class="patch-title">
+            <span>OUT ${r.label} <span class="small">Salida</span></span>
+            <label class="fail-toggle">
+              <input type="checkbox" ${r.fail ? "checked" : ""} onchange="setReturnFail(${idx}, this.checked)">
+              Falla
+            </label>
+          </div>
           <div class="grid grid-2">
             <div><label>Fuente (AUX/MATRIX)</label><input list="dl-source" value="${esc(r.source)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'source',this.value)"></div>
             <div><label>Destino</label><input list="dl-destination" value="${esc(r.destination)}" onfocus="startFieldEdit()" oninput="updRet(${idx},'destination',this.value)"></div>
@@ -789,13 +886,21 @@
     const hits = [];
     snakes().forEach(s=>{
       s.channels.forEach(ch=>{
-        if([ch.source,ch.destination,ch.micType,ch.notes,s.name,s.zone,`ch ${ch.channel}`].join(" ").toLowerCase().includes(q)){
-          hits.push({ type:"Entrada", snakeId:s.id, snakeName:s.name, zone:s.zone || "-", label:`CH ${ch.channel}`, source:ch.source||"-", destination:ch.destination||"-", extra:ch.micType||"-", notes:ch.notes||"-", color:s.color });
+        if([ch.source,ch.destination,ch.micType,ch.notes, ch.fail ? "falla" : "ok", s.name,s.zone,`ch ${ch.channel}`].join(" ").toLowerCase().includes(q)){
+          hits.push({
+            type:"Entrada", snakeId:s.id, snakeName:s.name, zone:s.zone || "-", label:`CH ${ch.channel}`,
+            source:ch.source||"-", destination:ch.destination||"-", extra:ch.micType||"-", notes:ch.notes||"-",
+            fail:!!ch.fail, color:s.color
+          });
         }
       });
       (s.returns || []).forEach(r=>{
-        if([r.label,r.source,r.destination,r.notes,s.name,s.zone,`out ${r.label}`].join(" ").toLowerCase().includes(q)){
-          hits.push({ type:"Salida", snakeId:s.id, snakeName:s.name, zone:s.zone || "-", label:`OUT ${r.label}`, source:r.source||"-", destination:r.destination||"-", extra:"-", notes:r.notes||"-", color:s.color });
+        if([r.label,r.source,r.destination,r.notes, r.fail ? "falla" : "ok", s.name,s.zone,`out ${r.label}`].join(" ").toLowerCase().includes(q)){
+          hits.push({
+            type:"Salida", snakeId:s.id, snakeName:s.name, zone:s.zone || "-", label:`OUT ${r.label}`,
+            source:r.source||"-", destination:r.destination||"-", extra:"-", notes:r.notes||"-",
+            fail:!!r.fail, color:s.color
+          });
         }
       });
     });
@@ -811,6 +916,7 @@
             <strong>${esc(h.snakeName)}</strong>
             <span class="badge">${h.type}</span>
             <span class="badge">${esc(h.label)}</span>
+            ${h.fail ? `<span class="badge">FALLA</span>` : ``}
           </div>
           <button onclick="openSnakeAndTab('${h.snakeId}','${h.type==='Entrada' ? 'inputs' : 'outputs'}')">Abrir</button>
         </div>
@@ -848,7 +954,14 @@
             <table class="print-table">
               <thead><tr><th style="width:60px">CH</th><th>Fuente</th><th>Destino</th><th>Mic/DI</th><th>Notas</th></tr></thead>
               <tbody>
-                ${(s.channels || []).map(c=>`<tr><td>CH ${esc(c.channel)}</td><td>${esc(c.source || "")}</td><td>${esc(c.destination || "")}</td><td>${esc(c.micType || "")}</td><td>${esc(c.notes || "")}</td></tr>`).join("")}
+                ${(s.channels || []).map(c=>`
+                  <tr class="${c.fail ? 'print-row-fail' : ''}">
+                    <td>CH ${esc(c.channel)}</td>
+                    <td>${esc(c.source || "")}</td>
+                    <td>${esc(c.destination || "")}</td>
+                    <td>${esc(c.micType || "")}</td>
+                    <td>${esc(c.notes || "")}</td>
+                  </tr>`).join("")}
               </tbody>
             </table>
 
@@ -856,7 +969,13 @@
             <table class="print-table">
               <thead><tr><th style="width:60px">OUT</th><th>Fuente</th><th>Destino</th><th>Notas</th></tr></thead>
               <tbody>
-                ${(s.returns || []).map(r=>`<tr><td>${esc(r.label || "")}</td><td>${esc(r.source || "")}</td><td>${esc(r.destination || "")}</td><td>${esc(r.notes || "")}</td></tr>`).join("")}
+                ${(s.returns || []).map(r=>`
+                  <tr class="${r.fail ? 'print-row-fail' : ''}">
+                    <td>${esc(r.label || "")}</td>
+                    <td>${esc(r.source || "")}</td>
+                    <td>${esc(r.destination || "")}</td>
+                    <td>${esc(r.notes || "")}</td>
+                  </tr>`).join("")}
               </tbody>
             </table>
             ` : ``}
@@ -908,7 +1027,7 @@
             </thead>
             <tbody>
               ${(s.channels || []).map(c=>`
-                <tr>
+                <tr class="${c.fail ? 'sheet-row-fail' : ''}">
                   <td class="mono"><strong>CH ${esc(c.channel)}</strong></td>
                   <td>${esc(c.source || "—")}</td>
                   <td>${esc(c.destination || "—")}</td>
@@ -933,7 +1052,7 @@
             </thead>
             <tbody>
               ${(s.returns || []).map(r=>`
-                <tr>
+                <tr class="${r.fail ? 'sheet-row-fail' : ''}">
                   <td class="mono"><strong>${esc(r.label || "")}</strong></td>
                   <td>${esc(r.source || "—")}</td>
                   <td>${esc(r.destination || "—")}</td>
@@ -987,6 +1106,8 @@
   window.moveSnakeDown = moveSnakeDown;
   window.updCh = updCh;
   window.updRet = updRet;
+  window.setChannelFail = setChannelFail;
+  window.setReturnFail = setReturnFail;
   window.startFieldEdit = startFieldEdit;
 
   tryRestoreBackup();
