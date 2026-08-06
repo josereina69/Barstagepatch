@@ -980,11 +980,58 @@
     setTimeout(()=>URL.revokeObjectURL(url), 800);
   }
 
-  function saveStagepatchFile(){
+  function downloadFile(filename, content, mime){
+  const blob = new Blob([content], { type: mime || "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function saveStagepatchFile(){
+  try{
     const payload = JSON.stringify(toStagepatch(), null, 2);
-    const base = (appData.show.name || "show").replace(/[^\w\-]+/g,"_");
-    downloadFile(`${base}${STAGEPATCH_EXT}`, payload, STAGEPATCH_MIME);
+    const base = (appData.show.name || "show").replace(/[^\w\-]+/g, "_");
+    const filename = `${base}${STAGEPATCH_EXT}`;
+
+    // Intentar "Guardar como..." si el navegador lo soporta
+    if (typeof window.showSaveFilePicker === "function") {
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: "Stagepatch file",
+            accept: {
+              [STAGEPATCH_MIME]: [STAGEPATCH_EXT],
+              "application/json": [".json"]
+            }
+          }]
+        });
+
+        const writable = await handle.createWritable();
+        await writable.write(payload);
+        await writable.close();
+        alert("Archivo guardado correctamente.");
+        return;
+      }catch(e){
+        // Si cancela el diálogo, salir sin error
+        if (e?.name === "AbortError") return;
+        console.warn("showSaveFilePicker falló; usando descarga normal.", e);
+      }
+    }
+
+    // Fallback universal: descarga normal
+    downloadFile(filename, payload, STAGEPATCH_MIME);
+    alert("Archivo descargado en Descargas.");
+  }catch(err){
+    console.error(err);
+    alert("Error al guardar: " + (err?.message || err));
   }
+}
 
   function importStagepatchFile(){
     const input = document.createElement("input");
