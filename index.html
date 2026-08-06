@@ -1212,14 +1212,6 @@
   }
 
   function downloadFile(filename, content, mime){
-    const blob = new Blob([content], {type:mime});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url), 800);
-  }
-
-  function downloadFile(filename, content, mime){
   const blob = new Blob([content], { type: mime || "application/octet-stream" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1775,12 +1767,14 @@ let wakeLock = null;
 
 async function enableWakeLock() {
   try {
-    if (!("wakeLock" in navigator)) return; // navegador no compatible
+    if (!("wakeLock" in navigator)) return;
+    if (wakeLock) return; // evita pedir otro lock si ya existe
     wakeLock = await navigator.wakeLock.request("screen");
     console.log("Wake Lock activo");
 
     wakeLock.addEventListener("release", () => {
       console.log("Wake Lock liberado");
+      wakeLock = null;
     });
   } catch (err) {
     console.warn("Wake Lock no disponible:", err?.message || err);
