@@ -1103,28 +1103,42 @@
   }
 
   function autoDestInputs(){
-  if(isReadMode()) return;
-  const s = snakes().find(x=>x.id===editorSnakeId); 
-  if(!s) return;
+  if (isReadMode()) return;
+  const s = snakes().find(x => x.id === editorSnakeId);
+  if (!s) return;
 
-  const patchName = prompt("Nombre del patch/destino base:", "RIO IN");
-  if(patchName === null) return;
+  const toInt = (v) => {
+    if (v === null || v === undefined) return null;
+    const n = parseInt(String(v).trim(), 10);
+    return Number.isFinite(n) ? n : null;
+  };
 
-  const start = Number(prompt("Canal de inicio (1.." + s.channels.length + "):", "1"));
-  if(!Number.isInteger(start) || start < 1 || start > s.channels.length){
-    alert("Canal de inicio inválido.");
+  const prefixRaw = prompt("Rack / prefijo destino (ej: RIO IN, SD-RACK IN, FOH CH):", "RIO IN");
+  if (prefixRaw === null) return;
+  const prefix = String(prefixRaw).trim();
+  if (!prefix) { alert("Prefijo inválido."); return; }
+
+  const destStart = toInt(prompt("Número de destino inicial (ej: 1, 20, 40, 101):", "1"));
+  if (destStart === null || destStart < 1) { alert("Destino inicial inválido."); return; }
+
+  const chStart = toInt(prompt(`Canal INICIAL de manguera (1..${s.channels.length}):`, "1"));
+  if (chStart === null || chStart < 1 || chStart > s.channels.length) {
+    alert(`Canal inicial de manguera inválido. Debe ser 1..${s.channels.length}`);
     return;
   }
 
-  const end = Number(prompt("Canal final (" + start + ".." + s.channels.length + "):", String(s.channels.length)));
-  if(!Number.isInteger(end) || end < start || end > s.channels.length){
-    alert("Canal final inválido.");
+  const chEnd = toInt(prompt(`Canal FINAL de manguera (${chStart}..${s.channels.length}):`, String(s.channels.length)));
+  if (chEnd === null || chEnd < chStart || chEnd > s.channels.length) {
+    alert(`Canal final de manguera inválido. Debe ser ${chStart}..${s.channels.length}`);
     return;
   }
 
-  snapshot("auto destination range");
-  for(let ch = start; ch <= end; ch++){
-    s.channels[ch-1].destination = `${patchName} ${String(ch).padStart(2,'0')}`;
+  snapshot("auto destination no-limit");
+
+  let d = destStart;
+  for (let ch = chStart; ch <= chEnd; ch++) {
+    s.channels[ch - 1].destination = `${prefix} ${String(d).padStart(2, "0")}`;
+    d++;
   }
 
   renderEditorBody();
