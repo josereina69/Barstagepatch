@@ -387,9 +387,55 @@
   <div class="editor-panel">
     <div class="editor-top">
       <div class="row">
-        <button id="closeEditor">← Volver</button>
-        <button id="autoDestBtn">Auto destino entradas</button>
-      </div>
+  <button id="closeEditor">← Volver</button>
+
+  <div style="max-width:320px">
+    <label for="autoDestSystem">Sistema destino</label>
+    <select id="autoDestSystem">
+      <option value="RIO IN" selected>RIO IN</option>
+      <option value="RIO OUT">RIO OUT</option>
+      <option value="TIO IN">TIO IN</option>
+      <option value="TIO OUT">TIO OUT</option>
+      <option value="RPIO IN">RPIO IN</option>
+      <option value="RPIO OUT">RPIO OUT</option>
+      <option value="SD-RACK IN">SD-RACK IN</option>
+      <option value="SD-RACK OUT">SD-RACK OUT</option>
+      <option value="SD-MINIRACK IN">SD-MINIRACK IN</option>
+      <option value="SD-MINIRACK OUT">SD-MINIRACK OUT</option>
+      <option value="SD-NANORACK IN">SD-NANORACK IN</option>
+      <option value="SD-NANORACK OUT">SD-NANORACK OUT</option>
+      <option value="D2-RACK IN">D2-RACK IN</option>
+      <option value="D2-RACK OUT">D2-RACK OUT</option>
+      <option value="AES50 A IN">AES50 A IN</option>
+      <option value="AES50 A OUT">AES50 A OUT</option>
+      <option value="DL16 IN">DL16 IN</option>
+      <option value="DL16 OUT">DL16 OUT</option>
+      <option value="DL32 IN">DL32 IN</option>
+      <option value="DL32 OUT">DL32 OUT</option>
+      <option value="S16 IN">S16 IN</option>
+      <option value="S16 OUT">S16 OUT</option>
+      <option value="DANTE RX">DANTE RX</option>
+      <option value="DANTE TX">DANTE TX</option>
+      <option value="MADI IN">MADI IN</option>
+      <option value="MADI OUT">MADI OUT</option>
+      <option value="PATCH FOH">PATCH FOH</option>
+      <option value="PATCH MON">PATCH MON</option>
+      <option value="SPLIT FOH">SPLIT FOH</option>
+      <option value="SPLIT MON">SPLIT MON</option>
+      <option value="SPLIT BROADCAST">SPLIT BROADCAST</option>
+      <option value="BROADCAST IN">BROADCAST IN</option>
+      <option value="BROADCAST OUT">BROADCAST OUT</option>
+      <option value="IEM TX">IEM TX</option>
+      <option value="WEDGE SEND">WEDGE SEND</option>
+      <option value="MATRIX OUT">MATRIX OUT</option>
+      <option value="PA L/R/SUB">PA L/R/SUB</option>
+      <option value="OMNI OUT">OMNI OUT</option>
+    </select>
+  </div>
+
+  <button id="autoDestBtn">Auto destino entradas</button>
+</div>
+
       <div class="grid grid-3">
         <div><label>Nombre</label><input id="edName"></div>
         <div><label>Zona</label><input id="edZone"></div>
@@ -1113,10 +1159,8 @@
     return Number.isFinite(n) ? n : null;
   };
 
-  const prefixRaw = prompt("Rack / prefijo destino (ej: RIO IN, SD-RACK IN, FOH CH):", "RIO IN");
-  if (prefixRaw === null) return;
-  const prefix = String(prefixRaw).trim();
-  if (!prefix) { alert("Prefijo inválido."); return; }
+  const prefix = ($("autoDestSystem")?.value || "RIO IN").trim();
+if (!prefix) { alert("Prefijo inválido."); return; }
 
   const destStart = toInt(prompt("Número de destino inicial (ej: 1, 20, 40, 101):", "1"));
   if (destStart === null || destStart < 1) { alert("Destino inicial inválido."); return; }
