@@ -1172,7 +1172,6 @@ async function shareApp(){
     $("btnLoadFile").addEventListener("click", loadFileFromWelcome);
 
     $("btnShareApp")?.addEventListener("click", shareApp);
-	$("btnShareReadOnly")?.addEventListener("click", shareReadOnly);
 
     $("saveShowMeta").addEventListener("click", saveShowMeta);
     $("createSnake").addEventListener("click", createSnake);
@@ -1210,7 +1209,6 @@ async function shareApp(){
   }
 
   normalize();
-  loadReadOnlyFromUrl();
   bind();
   refreshShowInputs();
   updateShowBadge();
@@ -1507,52 +1505,3 @@ window.addEventListener("load", enableWakeLock);
       }).catch(console.error);
     });
   }
-  // ===== Share read-only link =====
-function toBase64Url(str){
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/,"");
-}
-function fromBase64Url(str){
-  str = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (str.length % 4) str += "=";
-  return decodeURIComponent(escape(atob(str)));
-}
-
-function buildReadOnlyLink(){
-  const payload = { readOnly: true, data: appData };
-  const encoded = toBase64Url(JSON.stringify(payload));
-  return `${location.origin}${location.pathname}?view=${encoded}`;
-}
-
-async function shareReadOnly(){
-  const url = buildReadOnlyLink();
-  try{
-    if(navigator.share){
-      await navigator.share({ title:"Vista solo lectura", url });
-      return;
-    }
-    if(navigator.clipboard?.writeText){
-      await navigator.clipboard.writeText(url);
-      alert("Link copiado");
-      return;
-    }
-    prompt("Copia este link:", url);
-  }catch(e){
-    if(e?.name !== "AbortError") prompt("Copia este link:", url);
-  }
-}
-
-function loadReadOnlyFromUrl(){
-  const view = new URLSearchParams(location.search).get("view");
-  if(!view) return false;
-  try{
-    const payload = JSON.parse(fromBase64Url(view));
-    if(payload?.readOnly && payload?.data){
-      appData = payload.data;
-      normalize();
-      viewMode = "read";
-      return true;
-    }
-  }catch{}
-  return false;
-}
