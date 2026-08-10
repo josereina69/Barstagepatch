@@ -1166,6 +1166,33 @@ async function shareApp(){
     }
   }
 }
+async function shareReadView(){
+  const filter = $("sheetSnakeFilter")?.value || "all";
+  const url = `${location.origin}${location.pathname}?read=1&snake=${encodeURIComponent(filter)}`;
+
+  try{
+    if(navigator.share){
+      await navigator.share({
+        title: "Barstage Patch - Vista lectura",
+        text: "Te comparto la vista de lectura del patch.",
+        url
+      });
+      return;
+    }
+
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(url);
+      alert("Link de vista copiado.");
+      return;
+    }
+
+    prompt("Copia este link:", url);
+  }catch(e){
+    if(e?.name !== "AbortError"){
+      alert("No se pudo compartir.");
+    }
+  }
+}
   function bind(){
     $("btnNewShow").addEventListener("click", ()=>{ enterApp(); });
     $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
@@ -1193,6 +1220,7 @@ async function shareApp(){
     $("toggleReadMode").addEventListener("click", toggleMode);
     $("sheetSnakeFilter").addEventListener("change", renderSheetView);
     $("sheetPrintBtn").addEventListener("click", ()=>window.print());
+	$("sheetShareBtn")?.addEventListener("click", shareReadView);
 
     $("printMode").addEventListener("change", ()=>{
       $("printSnakeSelect").disabled = $("printMode").value !== "one";
@@ -1218,7 +1246,22 @@ async function shareApp(){
   refreshDatalists();
   refreshSheetFilter();
   loadModePref();
-  renderSheetView();
+
+const qp = new URLSearchParams(location.search);
+if(qp.get("read") === "1"){
+  viewMode = "read";
+  applyModeUI();
+}
+
+renderSheetView();
+
+if(qp.get("read") === "1"){
+  const snake = qp.get("snake");
+  if(snake && $("sheetSnakeFilter")){
+    $("sheetSnakeFilter").value = snake;
+    renderSheetView();
+  }
+}
   updateUndoRedoButtons();
   refreshWelcomeLastInfo();
   setInterval(autosaveNow, 10000);
