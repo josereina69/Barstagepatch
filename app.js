@@ -9,6 +9,7 @@
   let editorSnakeId = null;
   let activeTab = "inputs";
   let viewMode = "edit";
+  let sharedReadOnly = false;
 
   const HISTORY_LIMIT = 100;
   let undoStack = [];
@@ -110,12 +111,13 @@
   }
 
   function toggleMode(){
-    viewMode = (viewMode === "edit") ? "read" : "edit";
-    try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
-    applyModeUI();
-    renderSheetView();
-    if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
-  }
+  if (sharedReadOnly) return;
+  viewMode = (viewMode === "edit") ? "read" : "edit";
+  try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
+  applyModeUI();
+  renderSheetView();
+  if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
+}
 
   function applyModeUI(){
     const root = $("appRoot");
@@ -1194,77 +1196,111 @@ async function shareReadView(){
   }
 }
   function bind(){
-    $("btnNewShow").addEventListener("click", ()=>{ enterApp(); });
-    $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
-    $("btnLoadFile").addEventListener("click", loadFileFromWelcome);
+  $("btnNewShow")?.addEventListener("click", ()=>{ enterApp(); });
+  $("btnLoadLast")?.addEventListener("click", loadLastBackupAndEnter);
+  $("btnLoadFile")?.addEventListener("click", loadFileFromWelcome);
 
-    $("btnShareApp")?.addEventListener("click", shareApp);
+  $("btnShareApp")?.addEventListener("click", shareApp);
 
-    $("saveShowMeta").addEventListener("click", saveShowMeta);
-    $("createSnake").addEventListener("click", createSnake);
-    $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
-    $("saveStagepatch").addEventListener("click", saveStagepatchFile);
-    $("importStagepatch").addEventListener("click", importStagepatchFile);
-    $("clearAll").addEventListener("click", clearAll);
-    $("printBtn").addEventListener("click", printNow);
-    $("quickPrint").addEventListener("click", printNow);
-    $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
-    $("closeEditor").addEventListener("click", closeEditor);
-    $("tabInputs").addEventListener("click", ()=>setTab("inputs"));
-    $("tabOutputs").addEventListener("click", ()=>setTab("outputs"));
-    $("autoDestBtn").addEventListener("click", autoDestInputs);
-    $("edName").addEventListener("change", saveEditorMeta);
-    $("edZone").addEventListener("change", saveEditorMeta);
-    $("edColor").addEventListener("change", saveEditorMeta);
+  $("saveShowMeta")?.addEventListener("click", saveShowMeta);
+  $("createSnake")?.addEventListener("click", createSnake);
+  $("search")?.addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
+  $("saveStagepatch")?.addEventListener("click", saveStagepatchFile);
+  $("importStagepatch")?.addEventListener("click", importStagepatchFile);
+  $("clearAll")?.addEventListener("click", clearAll);
+  $("printBtn")?.addEventListener("click", printNow);
+  $("quickPrint")?.addEventListener("click", printNow);
+  $("quickNew")?.addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
+  $("closeEditor")?.addEventListener("click", closeEditor);
+  $("tabInputs")?.addEventListener("click", ()=>setTab("inputs"));
+  $("tabOutputs")?.addEventListener("click", ()=>setTab("outputs"));
+  $("autoDestBtn")?.addEventListener("click", autoDestInputs);
+  $("edName")?.addEventListener("change", saveEditorMeta);
+  $("edZone")?.addEventListener("change", saveEditorMeta);
+  $("edColor")?.addEventListener("change", saveEditorMeta);
 
-    $("toggleReadMode").addEventListener("click", toggleMode);
-    $("sheetSnakeFilter").addEventListener("change", renderSheetView);
-    $("sheetPrintBtn").addEventListener("click", ()=>window.print());
-	$("sheetShareBtn")?.addEventListener("click", shareReadView);
+  $("toggleReadMode")?.addEventListener("click", toggleMode);
+  $("sheetSnakeFilter")?.addEventListener("change", renderSheetView);
+  $("sheetPrintBtn")?.addEventListener("click", ()=>window.print());
+  $("sheetShareBtn")?.addEventListener("click", shareReadView);
 
-    $("printMode").addEventListener("change", ()=>{
+  $("printMode")?.addEventListener("change", ()=>{
+    if ($("printSnakeSelect") && $("printMode")) {
       $("printSnakeSelect").disabled = $("printMode").value !== "one";
-    });
+    }
+  });
 
-    $("undoBtn").addEventListener("click", undo);
-    $("redoBtn").addEventListener("click", redo);
+  $("undoBtn")?.addEventListener("click", undo);
+  $("redoBtn")?.addEventListener("click", redo);
 
-    document.addEventListener("keydown", (e)=>{
-      if(e.key === "Escape" && $("editor").classList.contains("open")) closeEditor();
-      if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
-      if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
-    });
-  }
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && $("editor")?.classList.contains("open")) closeEditor();
+    if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
+    if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
+  });
+}
 
-  normalize();
-  bind();
-  refreshShowInputs();
-  updateShowBadge();
-  renderList();
-  renderSearchResults();
-  refreshPrintSnakeSelect();
-  refreshDatalists();
-  refreshSheetFilter();
-  loadModePref();
+  
+normalize();
 
 const qp = new URLSearchParams(location.search);
-if(qp.get("read") === "1"){
+const forceReadFromLink = qp.get("read") === "1";
+
+if (forceReadFromLink) {
+  enterApp();
   viewMode = "read";
+  sharedReadOnly = true;
+}
+
+bind();
+refreshShowInputs();
+updateShowBadge();
+renderList();
+renderSearchResults();
+refreshPrintSnakeSelect();
+refreshDatalists();
+refreshSheetFilter();
+
+if (!forceReadFromLink) {
+  loadModePref();
+} else {
   applyModeUI();
 }
 
 renderSheetView();
 
-if(qp.get("read") === "1"){
+if (forceReadFromLink) {
   const snake = qp.get("snake");
-  if(snake && $("sheetSnakeFilter")){
+  if (snake && $("sheetSnakeFilter")) {
     $("sheetSnakeFilter").value = snake;
     renderSheetView();
   }
 }
-  updateUndoRedoButtons();
-  refreshWelcomeLastInfo();
-  setInterval(autosaveNow, 10000);
+
+updateUndoRedoButtons();
+refreshWelcomeLastInfo();
+setInterval(autosaveNow, 10000);
+
+if (!forceReadFromLink) {
+  loadModePref(); // modo normal guardado local
+} else {
+  applyModeUI();  // aplica modo lectura forzado
+}
+
+renderSheetView();
+
+if (forceReadFromLink) {
+  const snake = qp.get("snake");
+  if (snake && $("sheetSnakeFilter")) {
+    $("sheetSnakeFilter").value = snake;
+    renderSheetView();
+  }
+}
+
+updateUndoRedoButtons();
+refreshWelcomeLastInfo();
+setInterval(autosaveNow, 10000);
+
 
   // ===== Rider PDF (IndexedDB) =====
   const RIDER_DB_NAME = "barstage_rider_db";
