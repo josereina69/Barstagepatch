@@ -606,12 +606,17 @@
       body.innerHTML = s.channels.map((c,i)=>`
         <div class="patch-card ${c.fail ? "is-fail" : ""}">
           <div class="patch-title">
-            <span>Entrada ${c.channel}</span>
-            <label class="fail-toggle" title="Marcar como en fallo/no disponible">
-              <input type="checkbox" ${c.fail ? "checked" : ""} onchange="toggleFail('in',${i},this.checked)">
-              FALLA
-            </label>
-          </div>
+  <span>Entrada ${c.channel}</span>
+  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+    <button type="button" class="icon-btn" onclick="copyChannel('in',${i})" title="Copiar contenido">📑</button>
+<button type="button" class="icon-btn" onclick="pasteChannel('in',${i})" title="Pegar contenido">⬇</button>
+<button type="button" class="icon-btn" onclick="clearChannel('in',${i})" title="Limpiar contenido">✖</button>
+    <label class="fail-toggle" title="Marcar como en fallo/no disponible">
+      <input type="checkbox" ${c.fail ? "checked" : ""} onchange="toggleFail('in',${i},this.checked)">
+      FALLA
+    </label>
+  </div>
+</div>
           <div class="grid grid-2">
             <div><label>Fuente</label><input list="dl-source" value="${esc(c.source)}" onchange="updIn(${i},'source',this.value)"></div>
             <div><label>Destino</label><input list="dl-destination" value="${esc(c.destination)}" onchange="updIn(${i},'destination',this.value)"></div>
@@ -624,12 +629,17 @@
       body.innerHTML = (s.returns||[]).map((r,i)=>`
         <div class="patch-card ${r.fail ? "is-fail" : ""}">
           <div class="patch-title">
-            <span>Salida ${r.label}</span>
-            <label class="fail-toggle" title="Marcar como en fallo/no disponible">
-              <input type="checkbox" ${r.fail ? "checked" : ""} onchange="toggleFail('out',${i},this.checked)">
-              FALLA
-            </label>
-          </div>
+  <span>Salida ${r.label}</span>
+  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+    <button type="button" class="icon-btn" onclick="copyChannel('out',${i})" title="Copiar contenido">📑</button>
+<button type="button" class="icon-btn" onclick="pasteChannel('out',${i})" title="Pegar contenido">⬇</button>
+<button type="button" class="icon-btn" onclick="clearChannel('out',${i})" title="Limpiar contenido">✖</button>
+    <label class="fail-toggle" title="Marcar como en fallo/no disponible">
+      <input type="checkbox" ${r.fail ? "checked" : ""} onchange="toggleFail('out',${i},this.checked)">
+      FALLA
+    </label>
+  </div>
+</div>
           <div class="grid grid-2">
             <div><label>Fuente</label><input list="dl-source" value="${esc(r.source)}" onchange="updOut(${i},'source',this.value)"></div>
             <div><label>Destino</label><input list="dl-destination" value="${esc(r.destination)}" onchange="updOut(${i},'destination',this.value)"></div>
@@ -669,7 +679,85 @@
     renderSearchResults();
     renderSheetView();
   }
+function copyChannel(kind, i){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId); 
+  if(!s) return;
 
+  const row = (kind === "in") ? s.channels?.[i] : s.returns?.[i];
+  if(!row) return;
+
+  const payload = {
+    kind, // "in" o "out"
+    data: {
+      source: row.source || "",
+      destination: row.destination || "",
+      notes: row.notes || "",
+      ...(kind === "in" ? { micType: row.micType || "" } : {})
+    }
+  };
+
+  try{
+    localStorage.setItem("stagepatch_clipboard_channel_v1", JSON.stringify(payload));
+    alert(`Copiado ${kind==="in"?"entrada":"salida"} ${kind==="in"? (i+1) : (s.returns?.[i]?.label || i+1)}`);
+  }catch{
+    alert("No se pudo copiar.");
+  }
+}
+
+function pasteChannel(kind, i){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId); 
+  if(!s) return;
+
+  let raw = null;
+  try{ raw = localStorage.getItem("stagepatch_clipboard_channel_v1"); }catch{}
+  if(!raw){ alert("No hay contenido copiado."); return; }
+
+  let clip = null;
+  try{ clip = JSON.parse(raw); }catch{ alert("Contenido copiado inválido."); return; }
+  if(!clip?.data){ alert("Contenido copiado vacío."); return; }
+
+  const row = (kind === "in") ? s.channels?.[i] : s.returns?.[i];
+  if(!row) return;
+
+  snapshot("paste channel content");
+  row.source = clip.data.source || "";
+  row.destination = clip.data.destination || "";
+  row.notes = clip.data.notes || "";
+
+  if(kind === "in"){
+    row.micType = clip.data.micType || "";
+  }
+
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  refreshDatalists();
+  renderSheetView();
+}
+
+function clearChannel(kind, i){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId); 
+  if(!s) return;
+
+  const row = (kind === "in") ? s.channels?.[i] : s.returns?.[i];
+  if(!row) return;
+
+  snapshot("clear channel content");
+  row.source = "";
+  row.destination = "";
+  row.notes = "";
+  if(kind === "in") row.micType = "";
+
+  // dejamos FAIL como está (no lo tocamos)
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  refreshDatalists();
+  renderSheetView();
+}
   function autoDestInputs(){
   if (isReadMode()) return;
   const s = snakes().find(x => x.id === editorSnakeId);
@@ -1050,11 +1138,40 @@ async function saveStagepatchFile(){
   window.addEventListener("appinstalled", ()=>{
     $("btnInstallApp").classList.add("hidden");
   });
+async function shareApp(){
+  const shareUrl = location.href; // o tu URL fija publicada
+  const shareData = {
+    title: "Barstage Patch",
+    text: "Te comparto Barstage Patch para organizar mangueras de escenario.",
+    url: shareUrl
+  };
 
+  try{
+    if(navigator.share){
+      await navigator.share(shareData);
+      return;
+    }
+
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(shareUrl);
+      alert("Link copiado al portapapeles.");
+      return;
+    }
+
+    prompt("Copia este link:", shareUrl);
+  }catch(e){
+    // si cancela, no molestamos
+    if(e?.name !== "AbortError"){
+      alert("No se pudo compartir.");
+    }
+  }
+}
   function bind(){
     $("btnNewShow").addEventListener("click", ()=>{ enterApp(); });
     $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
     $("btnLoadFile").addEventListener("click", loadFileFromWelcome);
+
+    $("btnShareApp")?.addEventListener("click", shareApp);
 
     $("saveShowMeta").addEventListener("click", saveShowMeta);
     $("createSnake").addEventListener("click", createSnake);

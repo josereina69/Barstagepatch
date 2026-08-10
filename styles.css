@@ -243,3 +243,223 @@
         print-color-adjust: exact;
       }
     }
+	.icon-btn{
+  width:28px !important;
+  min-width:28px !important;
+  height:28px !important;
+  padding:0 !important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  line-height:1;
+  border-radius:999px;
+  border:1px solid #3b4f88;
+  background:#152247;
+}
+/* ===== COMPACT MODE (global) ===== */
+:root{
+  --radius:10px;
+}
+
+/* base tipografía y espaciado */
+body{font-size:14px;}
+.card{padding:10px; margin-bottom:8px; border-radius:12px;}
+label{font-size:.72rem; margin-bottom:4px;}
+input,select,button{
+  padding:8px 10px;
+  font-size:14px;
+  border-radius:8px;
+}
+.grid{gap:6px;}
+.row{gap:6px;}
+.sub{font-size:.8rem}
+.small{font-size:.75rem}
+.show-pill{padding:5px 9px; font-size:.76rem; margin-top:6px}
+
+/* cabecera más limpia */
+.brand-logo{width:52px;height:52px}
+.brand-title{font-size:1.1rem}
+.brand-sub{font-size:.82rem}
+.top-actions button{padding:8px 10px}
+
+/* lista de subsnakes más compacta */
+.snake-item{padding:8px; margin-bottom:6px; border-radius:10px;}
+.snake-title{font-size:.9rem}
+.snake-meta{font-size:.74rem}
+.snake-actions{gap:4px}
+.snake-actions button{
+  padding:6px 8px;
+  font-size:.78rem;
+  min-width:36px;
+  border-radius:8px;
+}
+
+/* editor compacto */
+.editor{padding:6px;}
+.editor-panel{border-radius:12px;}
+.editor-top{padding:8px; gap:6px;}
+.editor-body{padding:8px;}
+.tab{padding:8px; font-size:.85rem; border-radius:8px;}
+.patch-card{padding:8px; margin-bottom:6px; border-radius:10px;}
+.patch-title{margin-bottom:6px; font-size:.88rem}
+
+/* botones icono compactos */
+.icon-btn{
+  width:26px !important;
+  min-width:26px !important;
+  height:26px !important;
+  padding:0 !important;
+  font-size:13px;
+  border-radius:999px;
+}
+
+/* FALLA más fina */
+.fail-toggle{
+  padding:3px 7px;
+  font-size:.74rem;
+  border-radius:999px;
+}
+.fail-toggle input[type="checkbox"]{
+  width:14px; height:14px;
+}
+
+/* barra inferior */
+.sticky-bottom{padding:6px}
+.sticky-wrap{gap:6px}
+.sticky-wrap button{padding:8px 10px}
+
+/* tabla modo lectura compacta */
+.sheet-head{padding:8px; font-size:.9rem}
+.sheet-meta{font-size:.78rem}
+.sheet-table{font-size:.84rem}
+.sheet-table th,.sheet-table td{padding:6px}
+
+/* toolbar rider/acciones más proporcionado */
+#closeEditor,#autoDestBtn,#autoDestSystem{
+  padding:7px 9px;
+  font-size:13px;
+  border-radius:8px;
+}
+
+/* móvil: aún más compacto */
+@media (max-width:720px){
+  .app{padding:8px 8px 78px}
+  .card{padding:8px; margin-bottom:7px}
+  .brand-logo{width:44px;height:44px}
+  .brand-title{font-size:1rem}
+  .brand-sub{font-size:.78rem}
+
+  input,select,button{padding:7px 8px; font-size:13px}
+  .snake-actions button{padding:5px 7px; min-width:34px; font-size:.74rem}
+  .tab{padding:7px; font-size:.82rem}
+  .patch-title{font-size:.84rem}
+
+  #closeEditor{max-width:96px;}
+  #autoDestBtn{max-width:145px;}
+  #autoDestSystem{max-width:145px;}
+
+  .icon-btn{
+    width:24px !important;
+    min-width:24px !important;
+    height:24px !important;
+    font-size:12px;
+  }
+}
+/* ===== Editor header: versión compacta bonita ===== */
+.editor-top .row{
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+/* Botón volver */
+#closeEditor{
+  width:auto !important;
+  flex:0 0 auto !important;
+  padding:8px 12px !important;
+  font-size:14px !important;
+  line-height:1.15;
+  border-radius:10px !important;
+  background:#1b2a57;
+  border-color:#3f5da8;
+}
+
+/* Bloque sistema destino */
+.editor-top .row > div:has(#autoDestSystem){
+  width:auto;
+  min-width:200px;
+  max-width:240px;
+}
+
+#autoDestSystem{
+  width:100% !important;
+  padding:8px 10px !important;
+  font-size:14px !important;
+  border-radius:10px !important;
+}
+
+/* Botón auto destino */
+#autoDestBtn{
+  width:auto !important;
+  flex:0 0 auto !important;
+  padding:8px 12px !important;
+  font-size:14px !important;
+  line-height:1.15;
+  border-radius:10px !important;
+  background:#243b78;
+  border-color:#4b74d6;
+  font-weight:600;
+}
+
+/* Inputs de nombre/zona/color en la misma línea visual */
+#edName,#edZone,#edColor{
+  padding:8px 10px !important;
+  font-size:14px !important;
+  border-radius:10px !important;
+}
+
+/* Tabs más finas */
+.tab{
+  padding:9px 10px;
+  font-size:14px;
+  border-radius:10px;
+}
+
+/* Móvil: limpio sin verse enano */
+@media (max-width:720px){
+  .editor-top .row{
+    gap:8px;
+  }
+
+  #closeEditor,
+  #autoDestBtn,
+  #autoDestSystem{
+    font-size:13px !important;
+    padding:7px 10px !important;
+    border-radius:9px !important;
+  }
+
+  .editor-top .row > div:has(#autoDestSystem){
+    min-width:160px;
+    max-width:190px;
+  }
+}
+.welcome-actions--dual{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:10px;
+}
+
+.welcome-actions--dual button{
+  width:100%;
+}
+
+/* móvil muy estrecho: uno debajo del otro */
+@media (max-width:420px){
+  .welcome-actions--dual{
+    grid-template-columns:1fr;
+  }
+}
