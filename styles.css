@@ -463,3 +463,6 @@ input,select,button{
     grid-template-columns:1fr;
   }
 }
+#btnShareReadOnly{
+  white-space: nowrap;
+}
