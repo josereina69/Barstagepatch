@@ -4,12 +4,284 @@
   const STAGEPATCH_SCHEMA_VERSION = 1;
   const LS_BACKUP_KEY = "stagepatch_backup_v1";
   const LS_MODE_KEY = "stagepatch_view_mode_v1";
+  const LS_STAGE_VIEW_KEY = "stagepatch_stageview_v1";
 
   let appData = { show: { name:"", artist:"", date:"" }, snakes: [] };
   let editorSnakeId = null;
   let activeTab = "inputs";
   let viewMode = "edit";
   let sharedReadOnly = false;
+  
+  let stageView = {
+  selectedChipId: null
+};
+
+function ensureStageFields(){
+  appData.stageView = appData.stageView || {};
+  if(typeof appData.stageView.rotation !== "number") appData.stageView.rotation = 0; // 0 o 90
+  if(typeof appData.stageView.planDataUrl !== "string") appData.stageView.planDataUrl = "";
+  if(typeof appData.stageView.editOn !== "boolean") appData.stageView.editOn = true;
+
+  appData.snakes = (appData.snakes || []).map(s => ({
+    ...s,
+    stagePos: (s.stagePos && typeof s.stagePos.x === "number" && typeof s.stagePos.y === "number")
+      ? s.stagePos
+      : { x: 50, y: 50 }
+  }));
+}
+
+function hasSnakeFail(s){
+  return (s.channels||[]).some(c=>!!c.fail) || (s.returns||[]).some(r=>!!r.fail);
+}
+
+function stageEls(){
+  return {
+    view: $("stageView"),
+    img: $("stagePlanImg"),
+    layer: $("stageChipLayer"),
+    loadBtn: $("stageLoadPlanBtn"),
+    addBtn: $("stageAddChipBtn"),
+    editBtn: $("stageEditToggleBtn"),
+    rotateBtn: $("stageRotateBtn"),
+    resetBtn: $("stageResetBtn"),
+    input: $("stagePlanInput")
+  };
+}
+
+function stageApplyUI(){
+  const { view, img, editBtn, rotateBtn } = stageEls();
+  if(!view) return;
+
+  ensureStageFields();
+
+  const rot = appData.stageView.rotation === 90 ? 90 : 0;
+  const editOn = appData.stageView.editOn !== false;
+
+  view.classList.toggle("rot-90", rot === 90);
+  rotateBtn.textContent = rot === 90 ? "Plano: Horizontal" : "Plano: Vertical";
+
+  editBtn.classList.toggle("active", editOn);
+  editBtn.textContent = `Editar chips: ${editOn ? "ON" : "OFF"}`;
+
+  img.src = appData.stageView.planDataUrl || "";
+}
+
+function stagePointerToPercent(clientX, clientY){
+  const { view } = stageEls();
+  const r = view.getBoundingClientRect();
+  let x = ((clientX - r.left) / r.width) * 100;
+  let y = ((clientY - r.top) / r.height) * 100;
+
+  // NO compensamos rotación: snakes no giran
+  x = Math.max(0, Math.min(100, x));
+  y = Math.max(0, Math.min(100, y));
+  return { x, y };
+}
+
+function renderStageView(){
+  const { layer } = stageEls();
+  if(!layer) return;
+
+  ensureStageFields();
+  stageApplyUI();
+
+  layer.innerHTML = "";
+
+  snakes().forEach(s=>{
+    const chip = document.createElement("div");
+    chip.className = "stage-chip" + (hasSnakeFail(s) ? " fail" : "") + (stageView.selectedChipId===s.id ? " selected" : "");
+    chip.dataset.id = s.id;
+    chip.style.left = `${s.stagePos?.x ?? 50}%`;
+    chip.style.top = `${s.stagePos?.y ?? 50}%`;
+    chip.style.background = s.color || "#4f8cff";
+    chip.textContent = s.name || "Subsnake";
+	const scale = (typeof s.stageScale === "number" ? s.stageScale : 1);
+chip.style.transform = `translate(-50%,-50%) scale(${scale})`;
+    layer.appendChild(chip);
+
+    chip.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      stageView.selectedChipId = s.id;
+      renderStageView();
+    });
+
+    let dragging = false;
+let pinchStartDist = null;
+let pinchStartScale = 1;
+const activePointers = new Map();
+
+function getDist(a,b){
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.hypot(dx,dy);
+}
+
+chip.addEventListener("pointerdown",(e)=>{
+  if(isReadMode() || appData.stageView.editOn === false) return;
+
+  chip.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+  if(activePointers.size === 1){
+    dragging = true;
+    chip.style.cursor = "grabbing";
+  }
+
+  if(activePointers.size === 2){
+    dragging = false;
+    const pts = [...activePointers.values()];
+    pinchStartDist = getDist(pts[0], pts[1]);
+    pinchStartScale = (typeof s.stageScale === "number" ? s.stageScale : 1);
+  }
+});
+
+chip.addEventListener("pointermove",(e)=>{
+  if(isReadMode() || appData.stageView.editOn === false) return;
+  if(!activePointers.has(e.pointerId)) return;
+
+  activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+  // Pinch
+  if(activePointers.size >= 2){
+    const pts = [...activePointers.values()].slice(0,2);
+    const d = getDist(pts[0], pts[1]);
+    if(pinchStartDist && pinchStartDist > 0){
+      const factor = d / pinchStartDist;
+      s.stageScale = clampStageScale(pinchStartScale * factor);
+      chip.style.transform = `translate(-50%,-50%) scale(${s.stageScale})`;
+    }
+    return;
+  }
+
+  // Drag
+  if(dragging && activePointers.size === 1){
+    const p = stagePointerToPercent(e.clientX, e.clientY);
+    s.stagePos = { x:p.x, y:p.y };
+    chip.style.left = `${p.x}%`;
+    chip.style.top = `${p.y}%`;
+  }
+});
+
+function endPointer(e){
+  if(activePointers.has(e.pointerId)) activePointers.delete(e.pointerId);
+  if(activePointers.size < 2) pinchStartDist = null;
+
+  if(activePointers.size === 0){
+    if(!isReadMode()) snapshot("move/scale stage chip");
+    dragging = false;
+    chip.style.cursor = "grab";
+  } else if(activePointers.size === 1){
+    dragging = false;
+  }
+}
+
+chip.addEventListener("pointerup", endPointer);
+chip.addEventListener("pointercancel", endPointer);
+chip.addEventListener("pointerleave", endPointer);
+
+    chip.addEventListener("dblclick",(e)=>{
+      e.stopPropagation();
+      if(isReadMode()) return;
+      const n = prompt("Nombre del subsnake:", s.name || "");
+      if(n && n.trim()){
+        snapshot("rename stage chip");
+        s.name = n.trim();
+        renderList();
+        refreshPrintSnakeSelect();
+        refreshSheetFilter();
+        renderSheetView();
+        renderStageView();
+      }
+    });
+  });
+}
+
+function stageAddManualChip(){
+  if(isReadMode()) return;
+  createSnakeFromData({
+    name: `Subsnake ${snakes().length + 1}`,
+    channelsCount: 8,
+    returnsCount: 0,
+    color: "#4f8cff",
+    zone: "Escenario",
+    channels: makeChannels(8),
+    returns: makeReturns(0)
+  });
+  const s = snakes()[0]; // create hace unshift
+  s.stagePos = { x: 50, y: 50 };
+  stageView.selectedChipId = s.id;
+  renderStageView();
+}
+function changeSelectedChipScale(delta){
+  if(isReadMode()) return;
+  if(!stageView.selectedChipId){
+    alert("Selecciona un snake en el plano.");
+    return;
+  }
+
+  const s = snakes().find(x=>x.id===stageView.selectedChipId);
+  if(!s) return;
+
+  const cur = (typeof s.stageScale === "number") ? s.stageScale : 1;
+  const next = clampStageScale(+(cur + delta).toFixed(2));
+  if(next === cur) return;
+
+  snapshot("resize stage chip");
+  s.stageScale = next;
+  renderStageView();
+}
+function stageResetPositions(){
+  if(isReadMode()) return;
+  if(!confirm("¿Resetear posiciones de chips?")) return;
+  snapshot("reset stage chips");
+  snakes().forEach((s,i)=>{
+    const col = i % 4;
+    const row = Math.floor(i/4);
+    s.stagePos = { x: 18 + col*20, y: 20 + row*14 };
+  });
+  renderStageView();
+}
+
+function bindStageView(){
+  const { view, loadBtn, addBtn, editBtn, rotateBtn, resetBtn, input } = stageEls();
+  if(!view) return;
+
+  view.addEventListener("click", ()=>{ stageView.selectedChipId = null; renderStageView(); });
+
+  loadBtn?.addEventListener("click", ()=> input?.click());
+
+  input?.addEventListener("change",(e)=>{
+    const f = e.target.files?.[0];
+    if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      if(isReadMode()) return;
+      snapshot("load stage plan");
+      appData.stageView = appData.stageView || {};
+      appData.stageView.planDataUrl = String(fr.result || "");
+      renderStageView();
+    };
+    fr.readAsDataURL(f);
+    input.value = "";
+  });
+
+  addBtn?.addEventListener("click", stageAddManualChip);
+
+  editBtn?.addEventListener("click", ()=>{
+    if(isReadMode()) return;
+    appData.stageView.editOn = !(appData.stageView.editOn !== false);
+    renderStageView();
+  });
+
+  rotateBtn?.addEventListener("click", ()=>{
+    if(isReadMode()) return;
+    appData.stageView.rotation = (appData.stageView.rotation === 90) ? 0 : 90;
+    renderStageView();
+  });
+
+  resetBtn?.addEventListener("click", stageResetPositions);
+  $("stageSmallerBtn")?.addEventListener("click", ()=>changeSelectedChipScale(-0.1));
+$("stageBiggerBtn")?.addEventListener("click", ()=>changeSelectedChipScale(+0.1));
+}
 
   const HISTORY_LIMIT = 100;
   let undoStack = [];
@@ -23,6 +295,9 @@
   const snakes = () => appData.snakes;
   function clampR(n){ return Math.min(8, Math.max(0, Number(n) || 0)); }
   function isReadMode(){ return viewMode === "read"; }
+  function clampStageScale(v){
+  return Math.max(0.6, Math.min(2.2, Number(v) || 1));
+}
 
   function setSaveIndicator(txt){ $("saveIndicator").textContent = "Backup: " + txt; }
 
@@ -37,6 +312,7 @@
   function restoreState(state){
     appData = deepClone(state);
     normalize();
+	ensureStageFields();
     refreshShowInputs();
     updateShowBadge();
     renderList();
@@ -158,19 +434,25 @@
         fail: !!returnsOld[i]?.fail
       }));
       return {
-        ...s,
-        channelsCount,
-        channels: channels.map((c,i)=>({
-          channel: c.channel || i+1,
-          source:c.source||"",
-          destination:c.destination||"",
-          micType:c.micType||"",
-          notes:c.notes||"",
-          fail: !!c.fail
-        })),
-        returnsCount,
-        returns
-      };
+  ...s,
+  channelsCount,
+  channels: channels.map((c,i)=>({
+    channel: c.channel || i+1,
+    source:c.source||"",
+    destination:c.destination||"",
+    micType:c.micType||"",
+    notes:c.notes||"",
+    fail: !!c.fail
+  })),
+  returnsCount,
+returns,
+stageScale: (typeof s.stageScale === "number" && isFinite(s.stageScale))
+  ? clampStageScale(s.stageScale)
+  : 1,
+stagePos: (s.stagePos && typeof s.stagePos.x === "number" && typeof s.stagePos.y === "number")
+  ? { x: s.stagePos.x, y: s.stagePos.y }
+  : { x: 50, y: 50 }
+};
     });
   }
 
@@ -864,14 +1146,15 @@ if (!prefix) { alert("Prefijo inválido."); return; }
   }
 
   function toStagepatch(){
-    return {
-      app: "barstage-patch",
-      schemaVersion: STAGEPATCH_SCHEMA_VERSION,
-      exportedAt: new Date().toISOString(),
-      show: appData.show,
-      snakes: appData.snakes
-    };
-  }
+  return {
+    app: "barstage-patch",
+    schemaVersion: STAGEPATCH_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    show: appData.show,
+    snakes: appData.snakes,
+    stageView: appData.stageView || { planDataUrl:"", rotation:0, editOn:true }
+  };
+}
 
   function validateStagepatch(obj){
     if(!obj || typeof obj !== "object") throw new Error("Archivo inválido.");
@@ -944,9 +1227,13 @@ async function saveStagepatchFile(){
         const obj = JSON.parse(txt);
         validateStagepatch(obj);
         snapshot("import stagepatch");
-        appData = { show: obj.show || {name:"",artist:"",date:""}, snakes: obj.snakes || [] };
+        appData = {
+  show: obj.show || {name:"",artist:"",date:""},
+  snakes: obj.snakes || [],
+  stageView: obj.stageView || { planDataUrl:"", rotation:0, editOn:true }
+};
         normalize();
-        refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
+        refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView(); renderStageView();
         autosaveNow();
         alert("Archivo cargado correctamente.");
       }catch(e){
@@ -980,8 +1267,8 @@ async function saveStagepatchFile(){
     if(!data){ alert("No hay backup local."); return; }
     appData = deepClone(data.payload);
     normalize();
-    refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
-    enterApp();
+    refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView(); renderStageView();
+enterApp();
   }
   function loadFileFromWelcome(){
     const input = document.createElement("input");
@@ -993,9 +1280,13 @@ async function saveStagepatchFile(){
         const txt = await f.text();
         const obj = JSON.parse(txt);
         validateStagepatch(obj);
-        appData = { show: obj.show || {name:"",artist:"",date:""}, snakes: obj.snakes || [] };
+        appData = {
+  show: obj.show || {name:"",artist:"",date:""},
+  snakes: obj.snakes || [],
+  stageView: obj.stageView || { planDataUrl:"", rotation:0, editOn:true }
+};
         normalize();
-        refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
+        refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView(); renderStageView();
         autosaveNow();
         enterApp();
       }catch(e){
@@ -1339,6 +1630,8 @@ renderSearchResults();
 refreshPrintSnakeSelect();
 refreshDatalists();
 refreshSheetFilter();
+bindStageView();
+renderStageView();
 
 if (!forceReadFromLink) {
   loadModePref();
@@ -1663,3 +1956,25 @@ window.addEventListener("load", enableWakeLock);
       }).catch(console.error);
     });
   }
+/* ===== STAGE VIEW EXTRAS (panel toggle + init) ===== */
+const LS_STAGE_PANEL_OPEN_KEY = "stagepatch_stagepanel_open_v1";
+
+function isStagePanelOpen(){
+  try{
+    const v = localStorage.getItem(LS_STAGE_PANEL_OPEN_KEY);
+    return v !== "0"; // abierto por defecto
+  }catch{ return true; }
+}
+function setStagePanelOpen(open){
+  const card = $("stageViewCard");
+  const btn = $("toggleStagePanelBtn");
+  if(!card || !btn) return;
+  card.classList.toggle("collapsed", !open);
+  btn.textContent = open ? "🗺 Ocultar posicionamiento" : "🗺 Posicionamiento plano";
+  try{ localStorage.setItem(LS_STAGE_PANEL_OPEN_KEY, open ? "1" : "0"); }catch{}
+}
+$("toggleStagePanelBtn")?.addEventListener("click", ()=>{
+  const isCollapsed = $("stageViewCard")?.classList.contains("collapsed");
+  setStagePanelOpen(!!isCollapsed);
+});
+setStagePanelOpen(isStagePanelOpen());
