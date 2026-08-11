@@ -119,6 +119,41 @@
       <div id="snakesList"></div>
     </div>
   </div>
+  <div class="card no-print stage-view-card" id="stageViewCard">
+  <div class="sub" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <span>Stage View (guía visual)</span>
+    <button id="toggleStagePanelBtn" class="btn-ghost" type="button">🗺 Posicionamiento plano</button>
+  </div>
+
+  <div class="stage-view-body" id="stageViewBody">
+    <div class="row" style="margin-bottom:8px">
+      <button id="stageLoadPlanBtn" class="btn-ghost">🖼 Cargar plano</button>
+      <button id="stageAddChipBtn" class="btn">+ Chip manual</button>
+      <button id="stageEditToggleBtn" class="btn-lock active">Editar chips: ON</button>
+      <button id="stageRotateBtn" class="btn-ghost">Plano: Vertical</button>
+	  <button id="stageSmallerBtn" class="btn-ghost">A-</button>
+<button id="stageBiggerBtn" class="btn-ghost">A+</button>
+      <button id="stageResetBtn" class="btn-warn">Reset chips</button>
+    </div>
+
+    <input id="stagePlanInput" type="file" accept="image/*" class="hidden">
+
+    <div class="stage-view" id="stageView">
+      <div class="stage-view-ratio" id="stageViewRatio">
+        <div class="stage-bg-layer">
+  <div class="stage-bg-frame">
+    <img id="stagePlanImg" alt="Plano escenario">
+  </div>
+</div>
+<div class="stage-chip-layer" id="stageChipLayer"></div>
+      </div>
+    </div>
+
+    <div class="small" style="margin-top:8px">
+      Doble click en chip: renombrar · Arrastra para mover · Rotación solo gira el plano.
+    </div>
+  </div>
+</div>
 
   <div class="sheet-wrap read-only-only">
     <div class="card">
