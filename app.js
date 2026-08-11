@@ -240,7 +240,15 @@ function stageResetPositions(){
   });
   renderStageView();
 }
-
+function stageClearPlan(){
+  if(isReadMode()) return;
+  if(!confirm("¿Quitar imagen de plano?")) return;
+  snapshot("clear stage plan");
+  appData.stageView = appData.stageView || {};
+  appData.stageView.planDataUrl = "";
+  appData.stageView.rotation = 0;
+  renderStageView();
+}
 function bindStageView(){
   const { view, loadBtn, addBtn, editBtn, rotateBtn, resetBtn, input } = stageEls();
   if(!view) return;
@@ -281,6 +289,7 @@ function bindStageView(){
   resetBtn?.addEventListener("click", stageResetPositions);
   $("stageSmallerBtn")?.addEventListener("click", ()=>changeSelectedChipScale(-0.1));
 $("stageBiggerBtn")?.addEventListener("click", ()=>changeSelectedChipScale(+0.1));
+$("stageClearPlanBtn")?.addEventListener("click", stageClearPlan);
 }
 
   const HISTORY_LIMIT = 100;
