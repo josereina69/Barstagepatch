@@ -493,3 +493,100 @@ input,select,button{
     letter-spacing:.4px;
   }
 }
+/* ===== STAGE VIEW FIX ROTATION FIT ===== */
+.stage-view-card.collapsed .stage-view-body{display:none}
+.mode-reading .stage-view-card{display:none !important}
+
+.stage-view{
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+  background:#0f1830;
+}
+
+/* caja visible */
+.stage-view-ratio{
+  position:relative;
+  width:100%;
+  aspect-ratio:3/4; /* vertical */
+  background:#0f1830;
+}
+
+/* horizontal: más ancha */
+.stage-view.rot-90 .stage-view-ratio{
+  aspect-ratio:4/3;
+}
+
+/* capa de plano */
+.stage-bg-layer{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+}
+
+/* marco interno para contener imagen */
+.stage-bg-frame{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:100%;
+  height:100%;
+  transform:translate(-50%,-50%);
+  transform-origin:center center;
+}
+
+/* en horizontal, invertimos dimensiones del frame */
+.stage-view.rot-90 .stage-bg-frame{
+  width:100%;
+  height:100%;
+}
+
+/* imagen base */
+.stage-bg-frame img{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  transform:translate(-50%,-50%) rotate(0deg);
+  transform-origin:center center;
+  transition:transform .2s ease;
+  user-select:none;
+  pointer-events:none;
+}
+
+/* solo rota plano */
+.stage-view.rot-90 .stage-bg-frame img{
+  transform:translate(-50%,-50%) rotate(90deg);
+}
+
+/* chips NO giran */
+.stage-chip-layer{
+  position:absolute;
+  inset:0;
+  z-index:2;
+}
+.stage-chip{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  min-width:90px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.35);
+  color:#fff;
+  font-weight:700;
+  font-size:.82rem;
+  white-space:nowrap;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.stage-chip.fail{
+  box-shadow:0 0 0 2px rgba(239,68,68,.65), 0 2px 8px rgba(0,0,0,.35);
+}
+.stage-chip.selected{
+  outline:2px solid #fff;
+  outline-offset:1px;
+}
