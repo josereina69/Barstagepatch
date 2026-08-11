@@ -9,7 +9,6 @@
   let editorSnakeId = null;
   let activeTab = "inputs";
   let viewMode = "edit";
-  let sharedReadOnly = false;
 
   const HISTORY_LIMIT = 100;
   let undoStack = [];
@@ -111,13 +110,12 @@
   }
 
   function toggleMode(){
-  if (sharedReadOnly) return;
-  viewMode = (viewMode === "edit") ? "read" : "edit";
-  try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
-  applyModeUI();
-  renderSheetView();
-  if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
-}
+    viewMode = (viewMode === "edit") ? "read" : "edit";
+    try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
+    applyModeUI();
+    renderSheetView();
+    if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
+  }
 
   function applyModeUI(){
     const root = $("appRoot");
@@ -1168,166 +1166,62 @@ async function shareApp(){
     }
   }
 }
-async function shareReadView(){
-  try{
-    const filter = $("sheetSnakeFilter")?.value || "all";
-
-    const payload = {
-      v: 1,
-      mode: "read",
-      snake: filter,
-      data: appData
-    };
-
-    const encoded = encodeURIComponent(JSON.stringify(payload));
-    const url = `${location.origin}${location.pathname}?share=${encoded}`;
-
-    if(navigator.share){
-      await navigator.share({
-        title: "Barstage Patch - Vista lectura",
-        text: "Te comparto la vista del patch.",
-        url
-      });
-      return;
-    }
-
-    if(navigator.clipboard?.writeText){
-      await navigator.clipboard.writeText(url);
-      alert("Link de vista copiado.");
-      return;
-    }
-
-    prompt("Copia este link:", url);
-  }catch(e){
-    if(e?.name !== "AbortError"){
-      alert("No se pudo compartir.");
-    }
-  }
-}
   function bind(){
-  $("btnNewShow")?.addEventListener("click", ()=>{ enterApp(); });
-  $("btnLoadLast")?.addEventListener("click", loadLastBackupAndEnter);
-  $("btnLoadFile")?.addEventListener("click", loadFileFromWelcome);
+    $("btnNewShow").addEventListener("click", ()=>{ enterApp(); });
+    $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
+    $("btnLoadFile").addEventListener("click", loadFileFromWelcome);
 
-  $("btnShareApp")?.addEventListener("click", shareApp);
+    $("btnShareApp")?.addEventListener("click", shareApp);
 
-  $("saveShowMeta")?.addEventListener("click", saveShowMeta);
-  $("createSnake")?.addEventListener("click", createSnake);
-  $("search")?.addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
-  $("saveStagepatch")?.addEventListener("click", saveStagepatchFile);
-  $("importStagepatch")?.addEventListener("click", importStagepatchFile);
-  $("clearAll")?.addEventListener("click", clearAll);
-  $("printBtn")?.addEventListener("click", printNow);
-  $("quickPrint")?.addEventListener("click", printNow);
-  $("quickNew")?.addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
-  $("closeEditor")?.addEventListener("click", closeEditor);
-  $("tabInputs")?.addEventListener("click", ()=>setTab("inputs"));
-  $("tabOutputs")?.addEventListener("click", ()=>setTab("outputs"));
-  $("autoDestBtn")?.addEventListener("click", autoDestInputs);
-  $("edName")?.addEventListener("change", saveEditorMeta);
-  $("edZone")?.addEventListener("change", saveEditorMeta);
-  $("edColor")?.addEventListener("change", saveEditorMeta);
+    $("saveShowMeta").addEventListener("click", saveShowMeta);
+    $("createSnake").addEventListener("click", createSnake);
+    $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
+    $("saveStagepatch").addEventListener("click", saveStagepatchFile);
+    $("importStagepatch").addEventListener("click", importStagepatchFile);
+    $("clearAll").addEventListener("click", clearAll);
+    $("printBtn").addEventListener("click", printNow);
+    $("quickPrint").addEventListener("click", printNow);
+    $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
+    $("closeEditor").addEventListener("click", closeEditor);
+    $("tabInputs").addEventListener("click", ()=>setTab("inputs"));
+    $("tabOutputs").addEventListener("click", ()=>setTab("outputs"));
+    $("autoDestBtn").addEventListener("click", autoDestInputs);
+    $("edName").addEventListener("change", saveEditorMeta);
+    $("edZone").addEventListener("change", saveEditorMeta);
+    $("edColor").addEventListener("change", saveEditorMeta);
 
-  $("toggleReadMode")?.addEventListener("click", toggleMode);
-  $("sheetSnakeFilter")?.addEventListener("change", renderSheetView);
-  $("sheetPrintBtn")?.addEventListener("click", ()=>window.print());
-  $("sheetShareBtn")?.addEventListener("click", shareReadView);
+    $("toggleReadMode").addEventListener("click", toggleMode);
+    $("sheetSnakeFilter").addEventListener("change", renderSheetView);
+    $("sheetPrintBtn").addEventListener("click", ()=>window.print());
 
-  $("printMode")?.addEventListener("change", ()=>{
-    if ($("printSnakeSelect") && $("printMode")) {
+    $("printMode").addEventListener("change", ()=>{
       $("printSnakeSelect").disabled = $("printMode").value !== "one";
-    }
-  });
+    });
 
-  $("undoBtn")?.addEventListener("click", undo);
-  $("redoBtn")?.addEventListener("click", redo);
+    $("undoBtn").addEventListener("click", undo);
+    $("redoBtn").addEventListener("click", redo);
 
-  document.addEventListener("keydown", (e)=>{
-    if(e.key === "Escape" && $("editor")?.classList.contains("open")) closeEditor();
-    if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
-    if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
-  });
-}
-
-  
-normalize();
-
-const qp = new URLSearchParams(location.search);
-const sharedParam = qp.get("share");
-const forceReadFromLink = !!sharedParam;
-
-if (sharedParam) {
-  try{
-    const payload = JSON.parse(decodeURIComponent(sharedParam));
-
-    if(payload?.data && Array.isArray(payload.data.snakes)){
-      appData = payload.data;
-      normalize();
-    }
-
-    enterApp();
-    viewMode = "read";
-    sharedReadOnly = true;
-  }catch(err){
-    console.warn("Link compartido inválido", err);
+    document.addEventListener("keydown", (e)=>{
+      if(e.key === "Escape" && $("editor").classList.contains("open")) closeEditor();
+      if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
+      if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
+    });
   }
-}
 
-if (forceReadFromLink) {
-  enterApp();
-  viewMode = "read";
-  sharedReadOnly = true;
-}
-
-bind();
-refreshShowInputs();
-updateShowBadge();
-renderList();
-renderSearchResults();
-refreshPrintSnakeSelect();
-refreshDatalists();
-refreshSheetFilter();
-
-if (!forceReadFromLink) {
+  normalize();
+  bind();
+  refreshShowInputs();
+  updateShowBadge();
+  renderList();
+  renderSearchResults();
+  refreshPrintSnakeSelect();
+  refreshDatalists();
+  refreshSheetFilter();
   loadModePref();
-} else {
-  applyModeUI();
-}
-
-renderSheetView();
-
-if (forceReadFromLink) {
-  const snake = qp.get("snake");
-  if (snake && $("sheetSnakeFilter")) {
-    $("sheetSnakeFilter").value = snake;
-    renderSheetView();
-  }
-}
-
-updateUndoRedoButtons();
-refreshWelcomeLastInfo();
-setInterval(autosaveNow, 10000);
-
-if (!forceReadFromLink) {
-  loadModePref(); // modo normal guardado local
-} else {
-  applyModeUI();  // aplica modo lectura forzado
-}
-
-renderSheetView();
-
-if (forceReadFromLink) {
-  const snake = qp.get("snake");
-  if (snake && $("sheetSnakeFilter")) {
-    $("sheetSnakeFilter").value = snake;
-    renderSheetView();
-  }
-}
-
-updateUndoRedoButtons();
-refreshWelcomeLastInfo();
-setInterval(autosaveNow, 10000);
-
+  renderSheetView();
+  updateUndoRedoButtons();
+  refreshWelcomeLastInfo();
+  setInterval(autosaveNow, 10000);
 
   // ===== Rider PDF (IndexedDB) =====
   const RIDER_DB_NAME = "barstage_rider_db";

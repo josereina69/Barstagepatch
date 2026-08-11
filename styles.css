@@ -463,14 +463,3 @@ input,select,button{
     grid-template-columns:1fr;
   }
 }
-#sheetShareBtn{
-  white-space: nowrap;
-}
-.sheet-toolbar .row{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.sheet-toolbar .row > button{
-  flex:1 1 180px;
-}
