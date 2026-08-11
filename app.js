@@ -1172,7 +1172,6 @@ async function shareReadView(){
   try{
     const filter = $("sheetSnakeFilter")?.value || "all";
 
-    // payload con datos reales
     const payload = {
       v: 1,
       mode: "read",
