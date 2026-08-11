@@ -1169,14 +1169,27 @@ async function shareApp(){
   }
 }
 async function shareReadView(){
-  const filter = $("sheetSnakeFilter")?.value || "all";
-  const url = `${location.origin}${location.pathname}?read=1&snake=${encodeURIComponent(filter)}`;
-
   try{
+    const filter = $("sheetSnakeFilter")?.value || "all";
+
+    // payload con datos reales
+    const payload = {
+      v: 1,
+      mode: "read",
+      snake: filter,
+      data: appData
+    };
+
+    const json = JSON.stringify(payload);
+    const encoded = btoa(unescape(encodeURIComponent(json)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/,"");
+
+    const url = `${location.origin}${location.pathname}?share=${encoded}`;
+
     if(navigator.share){
       await navigator.share({
         title: "Barstage Patch - Vista lectura",
-        text: "Te comparto la vista de lectura del patch.",
+        text: "Te comparto la vista del patch.",
         url
       });
       return;
@@ -1244,7 +1257,28 @@ async function shareReadView(){
 normalize();
 
 const qp = new URLSearchParams(location.search);
-const forceReadFromLink = qp.get("read") === "1";
+const sharedParam = qp.get("share");
+const forceReadFromLink = !!sharedParam;
+
+if (sharedParam) {
+  try{
+    let s = sharedParam.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    const json = decodeURIComponent(escape(atob(s)));
+    const payload = JSON.parse(json);
+
+    if(payload?.data && Array.isArray(payload.data.snakes)){
+      appData = payload.data;
+      normalize();
+    }
+
+    enterApp();
+    viewMode = "read";
+    sharedReadOnly = true;
+  }catch(err){
+    console.warn("Link compartido inválido", err);
+  }
+}
 
 if (forceReadFromLink) {
   enterApp();
