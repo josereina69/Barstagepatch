@@ -463,3 +463,33 @@ input,select,button{
     grid-template-columns:1fr;
   }
 }
+#sheetShareBtn{
+  white-space: nowrap;
+}
+.sheet-toolbar .row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.sheet-toolbar .row > button{
+  flex:1 1 180px;
+}
+.sheet-divider td{
+  background:#24335f !important;
+  color:#e8eeff !important;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+  border-top:1px solid #4a63a8;
+  border-bottom:1px solid #4a63a8;
+}
+
+@media print{
+  .print-divider td{
+    background:#e9eefb !important;
+    color:#1e2a44 !important;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+  }
+}
