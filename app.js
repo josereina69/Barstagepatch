@@ -9,6 +9,7 @@
   let editorSnakeId = null;
   let activeTab = "inputs";
   let viewMode = "edit";
+  let sharedReadOnly = false;
 
   const HISTORY_LIMIT = 100;
   let undoStack = [];
@@ -110,12 +111,13 @@
   }
 
   function toggleMode(){
-    viewMode = (viewMode === "edit") ? "read" : "edit";
-    try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
-    applyModeUI();
-    renderSheetView();
-    if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
-  }
+  if (sharedReadOnly) return;
+  viewMode = (viewMode === "edit") ? "read" : "edit";
+  try{ localStorage.setItem(LS_MODE_KEY, viewMode); }catch{}
+  applyModeUI();
+  renderSheetView();
+  if(viewMode === "read" && $("editor").classList.contains("open")) closeEditor();
+}
 
   function applyModeUI(){
     const root = $("appRoot");
@@ -1021,91 +1023,143 @@ async function saveStagepatchFile(){
   }
 
   function renderSheetView(){
-    const wrap = $("sheetContainer");
-    if(viewMode !== "read"){ wrap.innerHTML = ""; return; }
+  const wrap = $("sheetContainer");
+  if(viewMode !== "read"){ wrap.innerHTML = ""; return; }
 
-    const filter = $("sheetSnakeFilter").value || "all";
-    const list = (filter === "all") ? snakes() : snakes().filter(s=>s.id===filter);
+  const filter = $("sheetSnakeFilter").value || "all";
+  const list = (filter === "all") ? snakes() : snakes().filter(s=>s.id===filter);
 
-    if(!list.length){
-      wrap.innerHTML = `<div class="card"><div class="small">No hay datos para mostrar.</div></div>`;
-      return;
-    }
-
-    wrap.innerHTML = list.map((s, idx)=>{
-      const rows = groupRowsForSnake(s);
-      const rowsHtml = rows.map(r=>`
-        <tr class="${r.fail ? "sheet-row-fail" : ""}">
-          <td>${esc(r.kind)}</td>
-          <td class="mono">${esc(String(r.ch))}</td>
-          <td>${esc(r.source)}</td>
-          <td>${esc(r.destination)}</td>
-          <td>${esc(r.mic)}</td>
-          <td>${esc(r.notes)}</td>
-          <td>${r.fail ? "⚠️ FALLA" : "OK"}</td>
-        </tr>
-      `).join("");
-
-      return `
-        <div class="sheet-group">
-          <div class="sheet-head">
-            <span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:${s.color};border:1px solid rgba(255,255,255,.35)"></span>
-            <span>${idx+1}. ${esc(s.name)}</span>
-            <span class="sheet-meta">· ${s.channelsCount} IN + ${s.returnsCount} OUT ${s.zone ? "· " + esc(s.zone) : ""}</span>
-          </div>
-          <div class="table-wrap">
-            <table class="sheet-table">
-              <thead>
-                <tr>
-                  <th>Tipo</th><th>Canal</th><th>Fuente</th><th>Destino</th><th>Mic</th><th>Notas</th><th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>${rowsHtml}</tbody>
-            </table>
-          </div>
-        </div>
-      `;
-    }).join("");
+  if(!list.length){
+    wrap.innerHTML = `<div class="card"><div class="small">No hay datos para mostrar.</div></div>`;
+    return;
   }
 
-  function buildPrintHTML(snakesToPrint){
-    const s = appData.show;
-    const header = `
-      <div style="margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700">Barstage Patch</div>
-        <div class="muted">Show: ${esc(s.name||"Sin definir")} · Artista: ${esc(s.artist||"—")} · Fecha: ${esc(s.date||"—")}</div>
-      </div>
+  wrap.innerHTML = list.map((s, idx)=>{
+    const inRows = (s.channels||[]).map(c=>({
+      kind:"Entrada",
+      ch:c.channel,
+      source:c.source||"—",
+      destination:c.destination||"—",
+      mic:c.micType||"—",
+      notes:c.notes||"—",
+      fail:!!c.fail
+    }));
+
+    const outRows = (s.returns||[]).map(r=>({
+      kind:"Salida",
+      ch:r.label,
+      source:r.source||"—",
+      destination:r.destination||"—",
+      mic:"—",
+      notes:r.notes||"—",
+      fail:!!r.fail
+    }));
+
+    const renderRow = (r)=>`
+      <tr class="${r.fail ? "sheet-row-fail" : ""}">
+        <td>${esc(r.kind)}</td>
+        <td class="mono">${esc(String(r.ch))}</td>
+        <td>${esc(r.source)}</td>
+        <td>${esc(r.destination)}</td>
+        <td>${esc(r.mic)}</td>
+        <td>${esc(r.notes)}</td>
+        <td>${r.fail ? "⚠️ FALLA" : "OK"}</td>
+      </tr>
     `;
 
-    const blocks = snakesToPrint.map((sn, idx)=>{
-      const rows = groupRowsForSnake(sn).map(r=>`
-        <tr class="${r.fail ? "print-row-fail" : ""}">
-          <td>${esc(r.kind)}</td>
-          <td>${esc(String(r.ch))}</td>
-          <td>${esc(r.source)}</td>
-          <td>${esc(r.destination)}</td>
-          <td>${esc(r.mic)}</td>
-          <td>${esc(r.notes)}</td>
-          <td>${r.fail ? "FALLA" : "OK"}</td>
-        </tr>
-      `).join("");
+    const rowsHtml = `
+      <tr class="sheet-divider"><td colspan="7">ENTRADAS</td></tr>
+      ${inRows.length ? inRows.map(renderRow).join("") : `<tr><td colspan="7" class="muted-x">Sin entradas</td></tr>`}
+      <tr class="sheet-divider"><td colspan="7">SALIDAS</td></tr>
+      ${outRows.length ? outRows.map(renderRow).join("") : `<tr><td colspan="7" class="muted-x">Sin salidas</td></tr>`}
+    `;
 
-      return `
-        <section class="print-snake" style="--snake-color:${sn.color}">
-          <h3>${idx+1}. ${esc(sn.name)} <span class="muted">(${sn.channelsCount} IN + ${sn.returnsCount} OUT${sn.zone ? " · " + esc(sn.zone) : ""})</span></h3>
-          <table class="print-table">
+    return `
+      <div class="sheet-group">
+        <div class="sheet-head">
+          <span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:${s.color};border:1px solid rgba(255,255,255,.35)"></span>
+          <span>${idx+1}. ${esc(s.name)}</span>
+          <span class="sheet-meta">· ${s.channelsCount} IN + ${s.returnsCount} OUT ${s.zone ? "· " + esc(s.zone) : ""}</span>
+        </div>
+        <div class="table-wrap">
+          <table class="sheet-table">
             <thead>
-              <tr><th>Tipo</th><th>Canal</th><th>Fuente</th><th>Destino</th><th>Mic</th><th>Notas</th><th>Estado</th></tr>
+              <tr>
+                <th>Tipo</th><th>Canal</th><th>Fuente</th><th>Destino</th><th>Mic</th><th>Notas</th><th>Estado</th>
+              </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rowsHtml}</tbody>
           </table>
-        </section>
-      `;
-    }).join("");
+        </div>
+      </div>
+    `;
+  }).join("");
+}
 
-    return `<div class="print-page">${header}${blocks}</div>`;
-  }
+ function buildPrintHTML(snakesToPrint){
+  const s = appData.show;
+  const header = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:14px;font-weight:700">Barstage Patch</div>
+      <div class="muted">Show: ${esc(s.name||"Sin definir")} · Artista: ${esc(s.artist||"—")} · Fecha: ${esc(s.date||"—")}</div>
+    </div>
+  `;
 
+  const blocks = snakesToPrint.map((sn, idx)=>{
+    const inRows = (sn.channels||[]).map(c=>({
+      kind:"Entrada",
+      ch:c.channel,
+      source:c.source||"—",
+      destination:c.destination||"—",
+      mic:c.micType||"—",
+      notes:c.notes||"—",
+      fail:!!c.fail
+    }));
+
+    const outRows = (sn.returns||[]).map(r=>({
+      kind:"Salida",
+      ch:r.label,
+      source:r.source||"—",
+      destination:r.destination||"—",
+      mic:"—",
+      notes:r.notes||"—",
+      fail:!!r.fail
+    }));
+
+    const renderPrintRow = (r)=>`
+      <tr class="${r.fail ? "print-row-fail" : ""}">
+        <td>${esc(r.kind)}</td>
+        <td>${esc(String(r.ch))}</td>
+        <td>${esc(r.source)}</td>
+        <td>${esc(r.destination)}</td>
+        <td>${esc(r.mic)}</td>
+        <td>${esc(r.notes)}</td>
+        <td>${r.fail ? "FALLA" : "OK"}</td>
+      </tr>
+    `;
+
+    const rows = `
+      <tr class="print-divider"><td colspan="7">ENTRADAS</td></tr>
+      ${inRows.length ? inRows.map(renderPrintRow).join("") : `<tr><td colspan="7">Sin entradas</td></tr>`}
+      <tr class="print-divider"><td colspan="7">SALIDAS</td></tr>
+      ${outRows.length ? outRows.map(renderPrintRow).join("") : `<tr><td colspan="7">Sin salidas</td></tr>`}
+    `;
+
+    return `
+      <section class="print-snake" style="--snake-color:${sn.color}">
+        <h3>${idx+1}. ${esc(sn.name)} <span class="muted">(${sn.channelsCount} IN + ${sn.returnsCount} OUT${sn.zone ? " · " + esc(sn.zone) : ""})</span></h3>
+        <table class="print-table">
+          <thead>
+            <tr><th>Tipo</th><th>Canal</th><th>Fuente</th><th>Destino</th><th>Mic</th><th>Notas</th><th>Estado</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>
+    `;
+  }).join("");
+
+  return `<div class="print-page">${header}${blocks}</div>`;
+}
   function printNow(){
     const mode = $("printMode").value;
     let list = snakes();
@@ -1166,62 +1220,166 @@ async function shareApp(){
     }
   }
 }
-  function bind(){
-    $("btnNewShow").addEventListener("click", ()=>{ enterApp(); });
-    $("btnLoadLast").addEventListener("click", loadLastBackupAndEnter);
-    $("btnLoadFile").addEventListener("click", loadFileFromWelcome);
+async function shareReadView(){
+  try{
+    const filter = $("sheetSnakeFilter")?.value || "all";
 
-    $("btnShareApp")?.addEventListener("click", shareApp);
+    const payload = {
+      v: 1,
+      mode: "read",
+      snake: filter,
+      data: appData
+    };
 
-    $("saveShowMeta").addEventListener("click", saveShowMeta);
-    $("createSnake").addEventListener("click", createSnake);
-    $("search").addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
-    $("saveStagepatch").addEventListener("click", saveStagepatchFile);
-    $("importStagepatch").addEventListener("click", importStagepatchFile);
-    $("clearAll").addEventListener("click", clearAll);
-    $("printBtn").addEventListener("click", printNow);
-    $("quickPrint").addEventListener("click", printNow);
-    $("quickNew").addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
-    $("closeEditor").addEventListener("click", closeEditor);
-    $("tabInputs").addEventListener("click", ()=>setTab("inputs"));
-    $("tabOutputs").addEventListener("click", ()=>setTab("outputs"));
-    $("autoDestBtn").addEventListener("click", autoDestInputs);
-    $("edName").addEventListener("change", saveEditorMeta);
-    $("edZone").addEventListener("change", saveEditorMeta);
-    $("edColor").addEventListener("change", saveEditorMeta);
+    const encoded = encodeURIComponent(JSON.stringify(payload));
+    const url = `${location.origin}${location.pathname}?share=${encoded}`;
 
-    $("toggleReadMode").addEventListener("click", toggleMode);
-    $("sheetSnakeFilter").addEventListener("change", renderSheetView);
-    $("sheetPrintBtn").addEventListener("click", ()=>window.print());
+    if(navigator.share){
+      await navigator.share({
+        title: "Barstage Patch - Vista lectura",
+        text: "Te comparto la vista del patch.",
+        url
+      });
+      return;
+    }
 
-    $("printMode").addEventListener("change", ()=>{
-      $("printSnakeSelect").disabled = $("printMode").value !== "one";
-    });
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(url);
+      alert("Link de vista copiado.");
+      return;
+    }
 
-    $("undoBtn").addEventListener("click", undo);
-    $("redoBtn").addEventListener("click", redo);
-
-    document.addEventListener("keydown", (e)=>{
-      if(e.key === "Escape" && $("editor").classList.contains("open")) closeEditor();
-      if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
-      if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
-    });
+    prompt("Copia este link:", url);
+  }catch(e){
+    if(e?.name !== "AbortError"){
+      alert("No se pudo compartir.");
+    }
   }
+}
+  function bind(){
+  $("btnNewShow")?.addEventListener("click", ()=>{ enterApp(); });
+  $("btnLoadLast")?.addEventListener("click", loadLastBackupAndEnter);
+  $("btnLoadFile")?.addEventListener("click", loadFileFromWelcome);
 
-  normalize();
-  bind();
-  refreshShowInputs();
-  updateShowBadge();
-  renderList();
-  renderSearchResults();
-  refreshPrintSnakeSelect();
-  refreshDatalists();
-  refreshSheetFilter();
+  $("btnShareApp")?.addEventListener("click", shareApp);
+
+  $("saveShowMeta")?.addEventListener("click", saveShowMeta);
+  $("createSnake")?.addEventListener("click", createSnake);
+  $("search")?.addEventListener("input", ()=>{ renderList(); renderSearchResults(); });
+  $("saveStagepatch")?.addEventListener("click", saveStagepatchFile);
+  $("importStagepatch")?.addEventListener("click", importStagepatchFile);
+  $("clearAll")?.addEventListener("click", clearAll);
+  $("printBtn")?.addEventListener("click", printNow);
+  $("quickPrint")?.addEventListener("click", printNow);
+  $("quickNew")?.addEventListener("click", ()=>window.scrollTo({top:0, behavior:"smooth"}));
+  $("closeEditor")?.addEventListener("click", closeEditor);
+  $("tabInputs")?.addEventListener("click", ()=>setTab("inputs"));
+  $("tabOutputs")?.addEventListener("click", ()=>setTab("outputs"));
+  $("autoDestBtn")?.addEventListener("click", autoDestInputs);
+  $("edName")?.addEventListener("change", saveEditorMeta);
+  $("edZone")?.addEventListener("change", saveEditorMeta);
+  $("edColor")?.addEventListener("change", saveEditorMeta);
+
+  $("toggleReadMode")?.addEventListener("click", toggleMode);
+  $("sheetSnakeFilter")?.addEventListener("change", renderSheetView);
+  $("sheetPrintBtn")?.addEventListener("click", ()=>window.print());
+  $("sheetShareBtn")?.addEventListener("click", shareReadView);
+
+  $("printMode")?.addEventListener("change", ()=>{
+    if ($("printSnakeSelect") && $("printMode")) {
+      $("printSnakeSelect").disabled = $("printMode").value !== "one";
+    }
+  });
+
+  $("undoBtn")?.addEventListener("click", undo);
+  $("redoBtn")?.addEventListener("click", redo);
+
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && $("editor")?.classList.contains("open")) closeEditor();
+    if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
+    if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
+  });
+}
+
+  
+normalize();
+
+const qp = new URLSearchParams(location.search);
+const sharedParam = qp.get("share");
+const forceReadFromLink = !!sharedParam;
+
+if (sharedParam) {
+  try{
+    const payload = JSON.parse(decodeURIComponent(sharedParam));
+
+    if(payload?.data && Array.isArray(payload.data.snakes)){
+      appData = payload.data;
+      normalize();
+    }
+
+    enterApp();
+    viewMode = "read";
+    sharedReadOnly = true;
+  }catch(err){
+    console.warn("Link compartido inválido", err);
+  }
+}
+
+if (forceReadFromLink) {
+  enterApp();
+  viewMode = "read";
+  sharedReadOnly = true;
+}
+
+bind();
+refreshShowInputs();
+updateShowBadge();
+renderList();
+renderSearchResults();
+refreshPrintSnakeSelect();
+refreshDatalists();
+refreshSheetFilter();
+
+if (!forceReadFromLink) {
   loadModePref();
-  renderSheetView();
-  updateUndoRedoButtons();
-  refreshWelcomeLastInfo();
-  setInterval(autosaveNow, 10000);
+} else {
+  applyModeUI();
+}
+
+renderSheetView();
+
+if (forceReadFromLink) {
+  const snake = qp.get("snake");
+  if (snake && $("sheetSnakeFilter")) {
+    $("sheetSnakeFilter").value = snake;
+    renderSheetView();
+  }
+}
+
+updateUndoRedoButtons();
+refreshWelcomeLastInfo();
+setInterval(autosaveNow, 10000);
+
+if (!forceReadFromLink) {
+  loadModePref(); // modo normal guardado local
+} else {
+  applyModeUI();  // aplica modo lectura forzado
+}
+
+renderSheetView();
+
+if (forceReadFromLink) {
+  const snake = qp.get("snake");
+  if (snake && $("sheetSnakeFilter")) {
+    $("sheetSnakeFilter").value = snake;
+    renderSheetView();
+  }
+}
+
+updateUndoRedoButtons();
+refreshWelcomeLastInfo();
+setInterval(autosaveNow, 10000);
+
 
   // ===== Rider PDF (IndexedDB) =====
   const RIDER_DB_NAME = "barstage_rider_db";
