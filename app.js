@@ -1179,10 +1179,7 @@ async function shareReadView(){
       data: appData
     };
 
-    const json = JSON.stringify(payload);
-    const encoded = btoa(unescape(encodeURIComponent(json)))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/,"");
-
+    const encoded = encodeURIComponent(JSON.stringify(payload));
     const url = `${location.origin}${location.pathname}?share=${encoded}`;
 
     if(navigator.share){
@@ -1261,10 +1258,7 @@ const forceReadFromLink = !!sharedParam;
 
 if (sharedParam) {
   try{
-    let s = sharedParam.replace(/-/g, "+").replace(/_/g, "/");
-    while (s.length % 4) s += "=";
-    const json = decodeURIComponent(escape(atob(s)));
-    const payload = JSON.parse(json);
+    const payload = JSON.parse(decodeURIComponent(sharedParam));
 
     if(payload?.data && Array.isArray(payload.data.snakes)){
       appData = payload.data;
