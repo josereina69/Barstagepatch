@@ -6,7 +6,7 @@
   const LS_MODE_KEY = "stagepatch_view_mode_v1";
   const LS_STAGE_VIEW_KEY = "stagepatch_stageview_v1";
 
-  let appData = { show: { name:"", artist:"", date:"" }, snakes: [] };
+  let appData = { show: { name:"", artist:"", venue:"", date:"" }, snakes: [] };
   let editorSnakeId = null;
   let activeTab = "inputs";
   let viewMode = "edit";
@@ -429,59 +429,65 @@ $("stageClearPlanBtn")?.addEventListener("click", stageClearPlan);
   }
 
   function normalize(){
-    appData.show = appData.show || {name:"",artist:"",date:""};
-    appData.snakes = (appData.snakes || []).map(s=>{
-      const channels = Array.isArray(s.channels) ? s.channels : makeChannels(Number(s.channelsCount)||8);
-      const channelsCount = Number(s.channelsCount) || channels.length || 8;
-      const returnsCount = clampR(s.returnsCount);
-      const returnsOld = Array.isArray(s.returns) ? s.returns : [];
-      const returns = RETURN_LABELS.slice(0, returnsCount).map((l, i)=>({
-        label:l,
-        source: returnsOld[i]?.source || "",
-        destination: returnsOld[i]?.destination || "",
-        notes: returnsOld[i]?.notes || "",
-        fail: !!returnsOld[i]?.fail
-      }));
-      return {
-  ...s,
-  channelsCount,
-  channels: channels.map((c,i)=>({
-    channel: c.channel || i+1,
-    source:c.source||"",
-    destination:c.destination||"",
-    micType:c.micType||"",
-    notes:c.notes||"",
-    fail: !!c.fail
-  })),
-  returnsCount,
-returns,
-stageScale: (typeof s.stageScale === "number" && isFinite(s.stageScale))
-  ? clampStageScale(s.stageScale)
-  : 1,
-stagePos: (s.stagePos && typeof s.stagePos.x === "number" && typeof s.stagePos.y === "number")
-  ? { x: s.stagePos.x, y: s.stagePos.y }
-  : { x: 50, y: 50 }
-};
-    });
-  }
+  appData.show = appData.show || {name:"",artist:"",venue:"",date:""};
+  if(typeof appData.show.venue !== "string") appData.show.venue = "";
+
+  appData.snakes = (appData.snakes || []).map(s=>{
+    const channels = Array.isArray(s.channels) ? s.channels : makeChannels(Number(s.channelsCount)||8);
+    const channelsCount = Number(s.channelsCount) || channels.length || 8;
+    const returnsCount = clampR(s.returnsCount);
+    const returnsOld = Array.isArray(s.returns) ? s.returns : [];
+    const returns = RETURN_LABELS.slice(0, returnsCount).map((l, i)=>({
+      label:l,
+      source: returnsOld[i]?.source || "",
+      destination: returnsOld[i]?.destination || "",
+      notes: returnsOld[i]?.notes || "",
+      fail: !!returnsOld[i]?.fail
+    }));
+    return {
+      ...s,
+      channelsCount,
+      channels: channels.map((c,i)=>({
+        channel: c.channel || i+1,
+        source:c.source||"",
+        destination:c.destination||"",
+        micType:c.micType||"",
+        notes:c.notes||"",
+        fail: !!c.fail
+      })),
+      returnsCount,
+      returns,
+      stageScale: (typeof s.stageScale === "number" && isFinite(s.stageScale))
+        ? clampStageScale(s.stageScale)
+        : 1,
+      stagePos: (s.stagePos && typeof s.stagePos.x === "number" && typeof s.stagePos.y === "number")
+        ? { x: s.stagePos.x, y: s.stagePos.y }
+        : { x: 50, y: 50 }
+    };
+  });
+}
 
   function updateShowBadge(){
-    const s = appData.show;
-    const txt = "Show: " + `${s.name || "Sin definir"}${s.artist ? " · " + s.artist : ""}${s.date ? " · " + s.date : ""}`;
-    $("showBadge").textContent = txt;
-    $("sheetMeta").textContent = txt;
-  }
+  const s = appData.show;
+  const txt = "Show: " + `${s.name || "Sin definir"}`
+    + `${s.artist ? " · " + s.artist : ""}`
+    + `${s.venue ? " · Ubicación: " + s.venue : ""}`
+    + `${s.date ? " · " + s.date : ""}`;
+  $("showBadge").textContent = txt;
+  $("sheetMeta").textContent = txt;
+}
 
   function saveShowMeta(){
-    if(isReadMode()) return;
-    snapshot("show meta");
-    appData.show.name = $("showName").value.trim();
-    appData.show.artist = $("artistName").value.trim();
-    appData.show.date = $("showDate").value;
-    updateShowBadge();
-    renderSheetView();
-    alert("Show actualizado.");
-  }
+  if(isReadMode()) return;
+  snapshot("show meta");
+  appData.show.name = $("showName").value.trim();
+  appData.show.artist = $("artistName").value.trim();
+  appData.show.venue = $("showVenue").value.trim();
+  appData.show.date = $("showDate").value;
+  updateShowBadge();
+  renderSheetView();
+  alert("Show actualizado.");
+}
 
   function createSnakeFromData({name, channelsCount, returnsCount, color, zone, channels, returns}){
     if(isReadMode()) return;
@@ -1564,16 +1570,16 @@ async function saveStagepatchFile(){
     if(isReadMode()) return;
     if(!confirm("Esto borrará TODO en esta sesión. ¿Continuar?")) return;
     snapshot("clear all");
-    appData = { show:{name:"",artist:"",date:""}, snakes:[] };
+    appData = { show:{name:"",artist:"",venue:"",date:""}, snakes:[] };
     refreshShowInputs(); updateShowBadge(); renderList(); renderSearchResults(); refreshPrintSnakeSelect(); refreshDatalists(); refreshSheetFilter(); renderSheetView();
   }
 
   function refreshShowInputs(){
-    $("showName").value = appData.show.name || "";
-    $("artistName").value = appData.show.artist || "";
-    $("showDate").value = appData.show.date || "";
-  }
-
+  $("showName").value = appData.show.name || "";
+  $("artistName").value = appData.show.artist || "";
+  $("showVenue").value = appData.show.venue || "";
+  $("showDate").value = appData.show.date || "";
+}
   function enterApp(){
     $("welcomeScreen").classList.add("hidden");
     $("appRoot").classList.remove("hidden");
@@ -1598,7 +1604,7 @@ enterApp();
         const obj = JSON.parse(txt);
         validateStagepatch(obj);
         appData = {
-  show: obj.show || {name:"",artist:"",date:""},
+  show: obj.show || {name:"",artist:"",venue:"",date:""},
   snakes: obj.snakes || [],
   stageView: obj.stageView || { planDataUrl:"", rotation:0, editOn:true }
 };
@@ -1707,11 +1713,16 @@ enterApp();
  function buildPrintHTML(snakesToPrint){
   const s = appData.show;
   const header = `
-    <div style="margin-bottom:10px">
-      <div style="font-size:14px;font-weight:700">Barstage Patch</div>
-      <div class="muted">Show: ${esc(s.name||"Sin definir")} · Artista: ${esc(s.artist||"—")} · Fecha: ${esc(s.date||"—")}</div>
+  <div style="margin-bottom:10px">
+    <div style="font-size:14px;font-weight:700">Barstage Patch</div>
+    <div class="muted">
+      Show: ${esc(s.name||"Sin definir")} ·
+      Artista: ${esc(s.artist||"—")} ·
+      Ubicación: ${esc(s.venue||"—")} ·
+      Fecha: ${esc(s.date||"—")}
     </div>
-  `;
+  </div>
+`;
 
   const blocks = snakesToPrint.map((sn, idx)=>{
     const inRows = (sn.channels||[]).map(c=>({

@@ -63,7 +63,10 @@
     .btn-ghost{background:transparent}
     .btn-ok{background:#10331f; border-color:#1f7a43}
     .btn-warn{background:#3a2b12; border-color:#7c5a1f}
-
+	
+	.grid-4{grid-template-columns:1fr 1fr 1fr 1fr;}
+@media (max-width:900px){ .grid-4{grid-template-columns:1fr 1fr;} }
+@media (max-width:720px){ .grid-4{grid-template-columns:1fr;} }
     .grid{display:grid; gap:8px}
     .grid-2{grid-template-columns:1fr 1fr}
     .grid-3{grid-template-columns:1fr 1fr 1fr}
