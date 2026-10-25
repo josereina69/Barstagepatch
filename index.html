@@ -50,6 +50,7 @@
       </div>
       <div class="top-actions">
         <button id="toggleReadMode" class="btn-lock">🔒 Modo lectura</button>
+		<button id="openManualBtn" class="btn-ghost">📘 Manual</button>
       </div>
     </div>
   </div>
@@ -262,7 +263,17 @@
     </div>
   </div>
 </div>
-
+<div id="manualModal" class="editor no-print">
+  <div class="editor-panel">
+    <div class="editor-top">
+      <div class="row">
+        <button id="closeManualBtn">← Volver</button>
+      </div>
+      <div class="sub">Manual de uso — Barstage Patch v1.3.0</div>
+    </div>
+    <div id="manualBody" class="editor-body"></div>
+  </div>
+</div>
 <div class="sticky-bottom no-print edit-only">
   <div class="sticky-wrap">
     <button id="quickNew" class="btn">+ Nuevo subsnake</button>

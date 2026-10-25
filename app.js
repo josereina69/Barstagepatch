@@ -1898,6 +1898,9 @@ async function shareReadView(){
   $("edName")?.addEventListener("change", saveEditorMeta);
   $("edZone")?.addEventListener("change", saveEditorMeta);
   $("edColor")?.addEventListener("change", saveEditorMeta);
+  
+  $("openManualBtn")?.addEventListener("click", openManual);
+$("closeManualBtn")?.addEventListener("click", closeManual);
 
   $("toggleReadMode")?.addEventListener("click", toggleMode);
   $("sheetSnakeFilter")?.addEventListener("change", renderSheetView);
@@ -1920,6 +1923,7 @@ $("removeOutChannelsBtn")?.addEventListener("click", removeOutputChannelsFromCur
 
   document.addEventListener("keydown", (e)=>{
     if(e.key === "Escape" && $("editor")?.classList.contains("open")) closeEditor();
+	if(e.key === "Escape" && $("manualModal")?.classList.contains("open")) closeManual();
     if((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
     if(((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")){ e.preventDefault(); redo(); }
   });
@@ -2006,6 +2010,158 @@ updateUndoRedoButtons();
 refreshWelcomeLastInfo();
 setInterval(autosaveNow, 10000);
 
+function getManualHTML(){
+  return `
+  <div class="card" style="margin:0; background:transparent; border:0; padding:0">
+    <h2 style="margin-top:0">Manual de uso — Barstage Patch v1.3.0</h2>
+    <p class="small">Guía completa de operación y edición.</p>
+
+    <h3>1) ¿Qué puedes hacer con la app?</h3>
+    <ul>
+      <li>Crear shows con nombre, artista, ciudad/lugar (opcional) y fecha.</li>
+      <li>Crear/editar subsnakes con entradas (IN), salidas (OUT), color y zona.</li>
+      <li>Marcar canales con FALLA.</li>
+      <li>Buscar por snake, canal, fuente, destino, notas, etc.</li>
+      <li>Reordenar mangueras (↑ ↓ o arrastrando).</li>
+      <li>Duplicar y borrar subsnakes.</li>
+      <li>Usar modo lectura para operación.</li>
+      <li>Imprimir todo o por manguera.</li>
+      <li>Guardar/cargar .stagepatch.</li>
+      <li>Usar Stage View (plano + chips).</li>
+      <li>Cargar/abrir Rider PDF.</li>
+      <li>Compartir app o vista lectura.</li>
+    </ul>
+
+    <h3>2) Pantalla de bienvenida</h3>
+    <ul>
+      <li><b>Nuevo show</b>: inicia desde cero.</li>
+      <li><b>Cargar último</b>: recupera backup local.</li>
+      <li><b>Cargar archivo</b>: importa .stagepatch.</li>
+      <li><b>Instalar app</b>: instala PWA (si está disponible).</li>
+      <li><b>Compartir app</b>: comparte el enlace.</li>
+    </ul>
+
+    <h3>3) Crear show</h3>
+    <ul>
+      <li>Completa Show/Gira, Artista, Ciudad/Lugar (opcional), Fecha.</li>
+      <li>Pulsa <b>Guardar show</b>.</li>
+    </ul>
+
+    <h3>4) Crear subsnake</h3>
+    <ul>
+      <li>Define nombre, cantidad de IN/OUT, color y zona.</li>
+      <li>Pulsa <b>Crear subsnake</b>.</li>
+    </ul>
+
+    <h3>5) Gestión de subsnakes</h3>
+    <ul>
+      <li><b>↑ / ↓</b> mover.</li>
+      <li><b>Editar</b> abrir editor.</li>
+      <li><b>Dup</b> duplicar.</li>
+      <li><b>X</b> eliminar.</li>
+      <li>También puedes arrastrar y soltar para reordenar.</li>
+    </ul>
+
+    <h3>6) Editor de subsnake</h3>
+    <ul>
+      <li>Pestaña Entradas: fuente, destino, mic, notas, FALLA.</li>
+      <li>Pestaña Salidas: fuente, destino, notas, FALLA.</li>
+      <li>Botones por canal: copiar, pegar, limpiar.</li>
+    </ul>
+
+    <h3>7) Auto destino entradas</h3>
+    <ul>
+      <li>Elige sistema destino (ej. RIO IN).</li>
+      <li>Pulsa <b>Auto destino entradas</b>.</li>
+      <li>Indica destino inicial, canal inicial y canal final.</li>
+    </ul>
+
+    <h3>8) Añadir/Quitar IN y OUT (v1.3.0)</h3>
+    <ul>
+      <li><b>+ Añadir IN</b> / <b>- Quitar IN</b>.</li>
+      <li><b>+ Añadir OUT</b> / <b>- Quitar OUT</b>.</li>
+      <li>Al quitar con datos, pide confirmación.</li>
+      <li>OUT respeta límite A-H (máx. 8).</li>
+    </ul>
+
+    <h3>9) Modo lectura</h3>
+    <ul>
+      <li>Activa con <b>Modo lectura</b>.</li>
+      <li>Muestra tabla limpia por manguera.</li>
+      <li>Permite filtrar e imprimir vista.</li>
+    </ul>
+
+    <h3>10) Buscador</h3>
+    <ul>
+      <li>Busca por cualquier texto (snake/canal/fuente/destino/notas/falla).</li>
+      <li>Cada resultado permite abrir directo el subsnake y pestaña correcta.</li>
+    </ul>
+
+    <h3>11) Guardar, importar y backup</h3>
+    <ul>
+      <li><b>Guardar (.stagepatch)</b> exporta archivo.</li>
+      <li><b>Importar (.stagepatch)</b> recupera archivo.</li>
+      <li>Backup local automático cada ~10 segundos.</li>
+    </ul>
+
+    <h3>12) Stage View (plano)</h3>
+    <ul>
+      <li>Cargar/Quitar plano.</li>
+      <li>Añadir chip manual.</li>
+      <li>Editar chips ON/OFF.</li>
+      <li>Rotar plano (chips no giran).</li>
+      <li>A- / A+ cambia escala del chip seleccionado.</li>
+      <li>Reset chips reacomoda posiciones.</li>
+      <li>Doble click en chip: renombrar.</li>
+    </ul>
+
+    <h3>13) Rider PDF</h3>
+    <ul>
+      <li>Cargar Rider PDF, Ver Rider, Quitar Rider.</li>
+      <li>Se guarda localmente (IndexedDB).</li>
+      <li>En móvil puede abrir en pestaña externa.</li>
+    </ul>
+
+    <h3>14) Compartir</h3>
+    <ul>
+      <li><b>Compartir app</b>: enlace general.</li>
+      <li><b>Compartir vista lectura</b>: enlace con patch para consulta.</li>
+    </ul>
+
+    <h3>15) Impresión</h3>
+    <ul>
+      <li>Imprime todas las mangueras o solo una.</li>
+      <li>Incluye estado OK/FALLA y datos de show.</li>
+    </ul>
+
+    <h3>16) Deshacer/Rehacer</h3>
+    <ul>
+      <li>Botones ↶ y ↷.</li>
+      <li>Atajos: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z.</li>
+    </ul>
+
+    <h3>17) Solución de problemas</h3>
+    <ul>
+      <li>No veo datos: prueba “Cargar último”.</li>
+      <li>No puedo editar: revisa si estás en modo lectura.</li>
+      <li>Link compartido: puede abrir forzado en solo lectura.</li>
+      <li>No instala: depende de navegador/HTTPS.</li>
+    </ul>
+
+    <h3>18) Versión</h3>
+    <p>Documento para <b>Barstage Patch v1.3.0</b>.</p>
+  </div>
+  `;
+}
+
+function openManual(){
+  const body = $("manualBody");
+  if(body) body.innerHTML = getManualHTML();
+  $("manualModal")?.classList.add("open");
+}
+function closeManual(){
+  $("manualModal")?.classList.remove("open");
+}
 
   // ===== Rider PDF (IndexedDB) =====
   const RIDER_DB_NAME = "barstage_rider_db";
