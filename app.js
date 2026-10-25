@@ -1051,6 +1051,314 @@ function clearChannel(kind, i){
   refreshDatalists();
   renderSheetView();
 }
+/* ===== IN/OUT channels manager (v3) ===== */
+/* Pega este bloque (puede reemplazar tu v2 anterior) */
+
+function channelHasData(ch){
+  if(!ch) return false;
+  return !!(
+    String(ch.source || "").trim() ||
+    String(ch.destination || "").trim() ||
+    String(ch.micType || "").trim() ||
+    String(ch.notes || "").trim() ||
+    !!ch.fail
+  );
+}
+function returnHasData(r){
+  if(!r) return false;
+  return !!(
+    String(r.source || "").trim() ||
+    String(r.destination || "").trim() ||
+    String(r.notes || "").trim() ||
+    !!r.fail
+  );
+}
+
+function ensureMiniModal(){
+  let root = $("miniModalRoot");
+  if(root) return root;
+
+  root = document.createElement("div");
+  root.id = "miniModalRoot";
+  root.className = "mini-modal hidden";
+  root.innerHTML = `
+    <div class="mini-modal-card">
+      <h3 class="mini-modal-title" id="miniModalTitle">Título</h3>
+      <div class="mini-modal-text" id="miniModalText">Texto</div>
+      <div>
+        <label id="miniModalInputLabel" for="miniModalInput">Cantidad</label>
+        <input id="miniModalInput" type="number" min="1" step="1" value="1">
+      </div>
+      <div class="mini-modal-actions">
+        <button id="miniModalCancel" class="btn-ghost" type="button">Cancelar</button>
+        <button id="miniModalOk" class="btn" type="button">Aceptar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(root);
+  return root;
+}
+
+function openNumberModal({
+  title = "Ingrese valor",
+  text = "",
+  label = "Cantidad",
+  defaultValue = 1,
+  min = 1,
+  okText = "Aceptar"
+} = {}){
+  return new Promise((resolve)=>{
+    const root = ensureMiniModal();
+    const titleEl = $("miniModalTitle");
+    const textEl = $("miniModalText");
+    const labelEl = $("miniModalInputLabel");
+    const inputEl = $("miniModalInput");
+    const okBtn = $("miniModalOk");
+    const cancelBtn = $("miniModalCancel");
+
+    titleEl.textContent = title;
+    textEl.textContent = text;
+    labelEl.textContent = label;
+    inputEl.min = String(min);
+    inputEl.value = String(defaultValue);
+    okBtn.textContent = okText;
+
+    function cleanup(result){
+      root.classList.add("hidden");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      root.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onEsc);
+      resolve(result);
+    }
+    function onOk(){
+      const n = parseInt(String(inputEl.value).trim(), 10);
+      if(!Number.isFinite(n) || n < min){
+        alert(`Valor inválido. Debe ser >= ${min}.`);
+        return;
+      }
+      cleanup(n);
+    }
+    function onCancel(){ cleanup(null); }
+    function onBackdrop(e){ if(e.target === root) cleanup(null); }
+    function onEsc(e){ if(e.key === "Escape") cleanup(null); }
+
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    root.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onEsc);
+
+    root.classList.remove("hidden");
+    setTimeout(()=>inputEl.focus(), 10);
+  });
+}
+
+/* ---------- ENTRADAS ---------- */
+async function addInputChannelsToCurrentSnake(){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId);
+  if(!s) return;
+
+  const n = await openNumberModal({
+    title: "Añadir canales de entrada",
+    text: `Actualmente: ${s.channels?.length || 0} canales IN`,
+    label: "¿Cuántos canales IN quieres agregar?",
+    defaultValue: 1,
+    min: 1,
+    okText: "Añadir"
+  });
+  if(n === null) return;
+
+  snapshot("add input channels");
+
+  s.channels = s.channels || [];
+  const start = s.channels.length + 1;
+
+  for(let i=0; i<n; i++){
+    s.channels.push({
+      channel: start + i,
+      source: "",
+      destination: "",
+      micType: "",
+      notes: "",
+      fail: false
+    });
+  }
+
+  s.channelsCount = s.channels.length;
+
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  refreshDatalists();
+  refreshSheetFilter();
+  renderSheetView();
+}
+
+async function removeInputChannelsFromCurrentSnake(){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId);
+  if(!s) return;
+
+  const total = s.channels?.length || 0;
+  if(total <= 1){
+    alert("Debe quedar al menos 1 canal IN.");
+    return;
+  }
+
+  const n = await openNumberModal({
+    title: "Quitar canales de entrada",
+    text: `Actualmente: ${total} canales IN`,
+    label: `¿Cuántos canales quitar desde el final? (máx ${total-1})`,
+    defaultValue: 1,
+    min: 1,
+    okText: "Quitar"
+  });
+  if(n === null) return;
+
+  if(n >= total){
+    alert(`No puedes quitar ${n}. Debe quedar al menos 1 canal.`);
+    return;
+  }
+
+  const cutFrom = total - n;
+  const tail = s.channels.slice(cutFrom);
+
+  const withData = tail.filter(channelHasData);
+  if(withData.length){
+    const preview = withData.slice(0,5).map(ch=>`IN ${ch.channel}`).join(", ");
+    const extra = withData.length > 5 ? ` y ${withData.length-5} más` : "";
+    const ok = confirm(
+      `Los canales a borrar contienen datos (${preview}${extra}).\n` +
+      `Si continúas se perderán.\n\n¿Deseas continuar?`
+    );
+    if(!ok) return;
+  }
+
+  snapshot("remove input channels");
+
+  s.channels = s.channels.slice(0, cutFrom);
+  s.channels.forEach((ch, i)=>{ ch.channel = i + 1; });
+  s.channelsCount = s.channels.length;
+
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  refreshDatalists();
+  refreshSheetFilter();
+  renderSheetView();
+}
+
+/* ---------- SALIDAS ---------- */
+async function addOutputChannelsToCurrentSnake(){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId);
+  if(!s) return;
+
+  s.returns = s.returns || [];
+  const current = s.returns.length;
+  const maxAdd = Math.max(0, RETURN_LABELS.length - current);
+
+  if(maxAdd <= 0){
+    alert("Este subsnake ya tiene el máximo de salidas (A-H).");
+    return;
+  }
+
+  const n = await openNumberModal({
+    title: "Añadir salidas",
+    text: `Actualmente: ${current} OUT · Máximo: ${RETURN_LABELS.length} (A-H)`,
+    label: `¿Cuántas salidas agregar? (máx ${maxAdd})`,
+    defaultValue: 1,
+    min: 1,
+    okText: "Añadir"
+  });
+  if(n === null) return;
+
+  if(n > maxAdd){
+    alert(`No puedes agregar ${n}. Máximo permitido ahora: ${maxAdd}.`);
+    return;
+  }
+
+  snapshot("add output channels");
+
+  for(let i=0; i<n; i++){
+    const idx = s.returns.length;
+    s.returns.push({
+      label: RETURN_LABELS[idx],
+      source: "",
+      destination: "",
+      notes: "",
+      fail: false
+    });
+  }
+
+  s.returnsCount = s.returns.length;
+
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  refreshDatalists();
+  refreshPrintSnakeSelect();
+  refreshSheetFilter();
+  renderSheetView();
+}
+
+async function removeOutputChannelsFromCurrentSnake(){
+  if(isReadMode()) return;
+  const s = snakes().find(x=>x.id===editorSnakeId);
+  if(!s) return;
+
+  s.returns = s.returns || [];
+  const total = s.returns.length;
+
+  if(total <= 0){
+    alert("No hay salidas para quitar.");
+    return;
+  }
+
+  const n = await openNumberModal({
+    title: "Quitar salidas",
+    text: `Actualmente: ${total} OUT`,
+    label: `¿Cuántas salidas quitar desde el final? (máx ${total})`,
+    defaultValue: 1,
+    min: 1,
+    okText: "Quitar"
+  });
+  if(n === null) return;
+
+  if(n > total){
+    alert(`No puedes quitar ${n}. Solo hay ${total}.`);
+    return;
+  }
+
+  const cutFrom = total - n;
+  const tail = s.returns.slice(cutFrom);
+
+  const withData = tail.filter(returnHasData);
+  if(withData.length){
+    const preview = withData.slice(0,5).map(r=>`OUT ${r.label}`).join(", ");
+    const extra = withData.length > 5 ? ` y ${withData.length-5} más` : "";
+    const ok = confirm(
+      `Las salidas a borrar contienen datos (${preview}${extra}).\n` +
+      `Si continúas se perderán.\n\n¿Deseas continuar?`
+    );
+    if(!ok) return;
+  }
+
+  snapshot("remove output channels");
+
+  s.returns = s.returns.slice(0, cutFrom);
+  s.returns.forEach((r, i)=>{ r.label = RETURN_LABELS[i]; });
+  s.returnsCount = s.returns.length;
+
+  renderEditorBody();
+  renderList();
+  renderSearchResults();
+  refreshDatalists();
+  refreshPrintSnakeSelect();
+  refreshSheetFilter();
+  renderSheetView();
+}
   function autoDestInputs(){
   if (isReadMode()) return;
   const s = snakes().find(x => x.id === editorSnakeId);
@@ -1584,6 +1892,11 @@ async function shareReadView(){
   $("sheetSnakeFilter")?.addEventListener("change", renderSheetView);
   $("sheetPrintBtn")?.addEventListener("click", ()=>window.print());
   $("sheetShareBtn")?.addEventListener("click", shareReadView);
+  $("addInChannelsBtn")?.addEventListener("click", addInputChannelsToCurrentSnake);
+$("removeInChannelsBtn")?.addEventListener("click", removeInputChannelsFromCurrentSnake);
+
+$("addOutChannelsBtn")?.addEventListener("click", addOutputChannelsToCurrentSnake);
+$("removeOutChannelsBtn")?.addEventListener("click", removeOutputChannelsFromCurrentSnake);
 
   $("printMode")?.addEventListener("change", ()=>{
     if ($("printSnakeSelect") && $("printMode")) {
